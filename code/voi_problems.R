@@ -2,6 +2,8 @@ library(ggplot2)
 library(LaplacesDemon)
 library(mvtnorm)
 library(reshape2)
+library(patchwork)
+library(future)
 
 source("~/Documents/GitHub/voi-risk-aversion/code/voi_simulations.R")
 
@@ -20,7 +22,7 @@ fcn_plot_corr_mat <- function(sigma_list, limits = c(NA, NA)) {
     theme_minimal()
 }
 
-gamma_seq <- seq(-20,20,.1)
+gamma_seq <- seq(-5,5,.1)
 ## Example 1: 2 actions and two states
 e1 <- list()
 n_states <- 2
@@ -59,88 +61,50 @@ p <- p/sum(p)
 n_y <- 5 # Partial information experiment that resolves uncertainty to n_y groups of possible outcomes
 Y <- sort(rep(1:n_y, 1+n_states/n_y)[1:n_states])
 
-## Draw from an inverse Wishart distribution
+## Parameters -------
 set.seed(11111)
-n_states <- 100
-n_actions <- 20
+n_states <- 50
+n_actions <- 50
 
-nsims <- 100
-mu <- runif(n_actions)
-set.seed(1224598)
-fcn_wish_sim <- function(df = 1, n_y = 5) {
-  Sigma <- LaplacesDemon::rinvwishart(n_actions+df, diag(n_actions))
-  prob <- list(mu = mu, sigma = Sigma)
-  action_state <- t(rmvnorm(n_states, mean = mu, sigma = Sigma))
-  colnames(action_state) <- paste0('s', 1:n_states)
-  rownames(action_state) <- paste0('a', 1:n_actions)
-  prob$action_state <- action_state
-  p <- runif(n_states)
-  prob$p <- p/sum(p)
-  prob$Y <- sort(rep(1:n_y, 1+n_states/n_y)[1:n_states])
-  prob$evpxi <- T
-  prob
-}
-wish_sim <- replicate(nsims, fcn_wish_sim(), simplify = F)
-wish_sim_results <- lapply(wish_sim, fcn_VOI_simulation, gamma_seq = gamma_seq)
-names(wish_sim_results) <- 1:nsims
-wish_sim_table <- wish_sim_results %>%
-  #lapply(function(x) mutate(x, VPI = VPI - x$VPI[x$gamma == 0])) %>%
-  #lapply(function(x) x$VPI) %>%
-  bind_rows(.id = 'run_index')
-wish_sim_mean <- wish_sim_table %>%
-  group_by(gamma) %>%
-  summarise(VPI = mean(VPI, na.rm = T))
-wish_sim_table %>%
-  #ggplot(aes(x = gamma, y = VPI, group = name)) +
-  ggplot(aes(x = gamma, y = VPI)) +
-  geom_line(aes(group = run_index), size = 1, alpha = 0.1) +
-  geom_line(data= wish_sim_mean, color = 'blue', size = 1) +
-  coord_cartesian(ylim = c(0,3), xlim = c(-15, 15)) +
-  theme_minimal()
+nsims <- 500
 
-# Fineness of partition ----------------
-fineness <- rep(c(5,10,25,50), 50) %>% sort()
-wish_sim_evpxi <- lapply(fineness, function(ny) fcn_wish_sim(n_y = ny))
-wish_sim_evpxi_results <- lapply(wish_sim_evpxi, fcn_VOI_simulation, gamma_seq = gamma_seq)
-names(wish_sim_evpxi_results) <- paste0(1:length(fineness), '_', fineness)
-wish_sim_evpxi_results %>%
-  bind_rows(.id='name') %>%
-  separate(name, c('run_index', 'fineness')) %>%
-  group_by(fineness, gamma) %>%
-  summarise(VPI = mean(VPI)) %>%
-  ggplot(aes(y = VPI, x = gamma, color = as.numeric(fineness), group = as.numeric(fineness))) +
-  geom_line(size=1)+
-  theme_minimal()
+## Draw from uniform distribution like Holden et al (2024) ------
+plan(multisession)
+unif_action_state_sim <- function() matrix(runif(n_states*n_actions), nrow = n_actions)
+unif_plt <- fcn_plot_simulations(unif_action_state_sim)
+unif_plt
 
+## Draw from an exponential distribution like Holden et al (2024) ------
+exp_action_state_sim <- function() matrix(rexp(n_states*n_actions, 1), nrow = n_actions)
+exp_plt <- fcn_plot_simulations(exp_action_state_sim)
+exp_plt
 
-# Degrees of freedom -----------
-gamma_seq <- seq(-20,20,.5)
-df_seq <- rep(c(1,5,10), 100) %>% sort()
-wish_sim_df <- lapply(df_seq, fcn_wish_sim)
-names(wish_sim_df) <- paste(1:length(df_seq), df_seq, sep = '_')
-wish_sim_df_results <- lapply(wish_sim_df, fcn_VOI_simulation, gamma_seq = gamma_seq) %>%
-  bind_rows(.id='name') %>%
-  separate(name, c('run_id', 'df'), sep = "_") #%>%
-wish_sim_df_mean <- wish_sim_df_results %>%
-  group_by(df, gamma) %>%
-  summarise(VPI = mean(VPI) )
-wish_sim_df_results %>%
-  #ggplot(aes(x = gamma, y = VPI, group = name)) +
-  ggplot(aes(x = gamma, y = VPI)) +
-  geom_line(aes(group = as.numeric(run_id)), size = 1, alpha = 0.1) +
-  geom_line(data = wish_sim_df_mean, size = 1, color = 'red') +
-  facet_wrap(~df) +
-  theme_minimal()
+## Draw from an poisson distribution with heterogeneous rate parameters ------
+pois_action_state_sim <- function() rpois(n_states*n_actions, rep(sample(0:5, n_actions, replace = T), each=n_states)) %>%
+  matrix(nrow = n_actions, byrow = T)
+pois_plt <- fcn_plot_simulations(pois_action_state_sim)
+pois_plt
 
-# Find the gamma value where the value of information is the highest
-wish_sim_df_max_gamma <- wish_sim_df_results %>%
-  group_by(run_id, df) %>%
-  summarise(max_gamma = gamma[which.max(VPI)]) %>%
-  ungroup()
+## Draw from an lognormal distribution like Holden et al (2024) ------
+lnorm_action_state_sim <- function() rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
+  matrix(nrow = n_actions, byrow = T)
+lnorm_plt <- fcn_plot_simulations(lnorm_action_state_sim)
+lnorm_plt
 
-ggplot(wish_sim_df_max_gamma, aes(x = max_gamma)) +
-  geom_histogram() +
-  facet_wrap(~df) +
-  theme_minimal()
+## Draw from a negative lognormal distribution ------
+neg_lnorm_action_state_sim <- function() -rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
+  matrix(nrow = n_actions, byrow = T)
+neg_lnorm_plt <- fcn_plot_simulations(neg_lnorm_action_state_sim)
+neg_lnorm_plt
+
+## Explicit trade-off in mean and variance
+mu <- seq(1, 1.5, length.out = n_actions)
+sd <- seq(0.1, 2, length.out = n_actions)
+mv_action_state_sim <- function() rnorm(n_states*n_actions, 
+                                          rep(mu, each=n_states),
+                                          rep(sd, each=n_states)) %>%
+  matrix(nrow = n_actions, byrow = T)
+mv_plt <- fcn_plot_simulations(mv_action_state_sim)
+mv_plt
 
 
