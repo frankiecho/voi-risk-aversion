@@ -5,76 +5,129 @@ library(reshape2)
 library(patchwork)
 library(future)
 
-source("~/Documents/GitHub/voi-risk-aversion/code/voi_simulations.R")
+source("code/voi_simulations.R")
 
-fcn_plot_corr_mat <- function(sigma_list, limits = c(NA, NA)) {
-  names(sigma_list) <- 1:length(sigma_list)
-  sigma_df <- lapply(sigma_list, function(sigma) {
-    colnames(sigma) <- rownames(sigma) <- 1:nrow(sigma)
-    melted_cormat <- reshape2::melt(sigma)
-  }) %>%
-    bind_rows(.id = 'name')
-  ggplot(sigma_df, aes(x = Var1, y = Var2, fill = value)) +
-    geom_tile() +
-    scale_y_reverse() +
-    scale_fill_gradient2(midpoint = 0, limits = limits) +
-    facet_wrap(~name) +
-    theme_minimal()
+pref_list_long <- c("CE"="Certainty Equivalent", "MV"="Mean-Variance", "MCVaR"="Mean-Expected Shortfall")
+pref_list <- c("CE", "MV", "MCVaR")
+
+e1_ce_plt_list <- list()
+e2_ce_plt_list <- list()
+e1_vpi_plt_list <- list()
+e2_vpi_plt_list <- list()
+
+for (pref in pref_list) {
+  
+  fcn_plot_corr_mat <- function(sigma_list, limits = c(NA, NA)) {
+    names(sigma_list) <- 1:length(sigma_list)
+    sigma_df <- lapply(sigma_list, function(sigma) {
+      colnames(sigma) <- rownames(sigma) <- 1:nrow(sigma)
+      melted_cormat <- reshape2::melt(sigma)
+    }) %>%
+      bind_rows(.id = 'name')
+    ggplot(sigma_df, aes(x = Var1, y = Var2, fill = value)) +
+      geom_tile() +
+      scale_y_reverse() +
+      scale_fill_gradient2(midpoint = 0, limits = limits) +
+      facet_wrap(~name) +
+      theme_minimal()
+  }
+  
+  fcn_plt_ce <- function(df, n_actions = 2) {
+    df <- df %>%
+      pivot_longer(paste0('a', 1:n_actions), names_to = 'actions', values_to = 'ce') %>%
+      mutate(actions = factor(actions, paste0('a', 1:n_actions), as.character(1:n_actions))) 
+    df %>%
+      ggplot(aes(y = ce, x = gamma, color = actions))+
+      geom_hline(yintercept = 0, color = 'gray50') +
+      geom_vline(xintercept = 0, color = 'gray50') +
+      geom_line(linewidth = 1)+
+      geom_point(data = filter(df, gamma==0), size = 2) +
+      scale_x_continuous("Risk Aversion Coefficient") +
+      scale_y_continuous("Value of system under uncertainty") +
+      scale_color_manual("Action", values=okabe_ito_colors[c(1,3,5)[1:n_actions]]) +
+      theme_pubr() +
+      theme(legend.position = 'right')
+  }
+  
+  fcn_plt_vpi <- function(df, n_actions = 2) {
+    df <- df %>%
+      mutate(actions = factor(max_EU, 1:n_actions, as.character(1:n_actions))) %>%
+      select(gamma, VPI, max_EU, actions) 
+    
+    df %>%
+      ggplot(aes(x = gamma, y = VPI)) +
+      geom_hline(yintercept = 0, color = 'gray50') +
+      geom_vline(xintercept = 0, color = 'gray50') +
+      geom_line(color = 'gray50', linewidth = 1) +
+      geom_line(aes(color = actions), linewidth = 1) +
+      geom_point(data = filter(df, gamma==0), aes(color = actions), size = 2) +
+      scale_x_continuous("Risk Aversion Coefficient") +
+      scale_y_continuous("Value of Perfect Information") +
+      scale_color_manual("Optimal \nAction \nunder \nUncertainty", values=okabe_ito_colors[c(1,3,5)[1:n_actions]]) +
+      theme_pubr() +
+      theme(legend.position = 'right')
+  }
+  
+  ## Example 1: 2 actions and two states
+  if (pref=='CE') {
+    gamma_seq <- seq(-5,5,.05)
+  } else {
+    gamma_seq <- seq(-1,1,.01)
+  }
+  e1 <- list()
+  n_states <- 2
+  n_actions <- 2
+  a1 <- c(1.35, .55)
+  a2 <- c(1.00, 1.00)
+  e1$p <- c(0.5, 0.5)
+  action_state <- matrix(c(a1, a2), byrow = T, ncol = length(a1))
+  colnames(action_state) <- paste0('s', 1:n_states)
+  rownames(action_state) <- paste0('a', 1:n_actions)
+  e1$action_state <- action_state
+  e1_voi <- fcn_VOI_simulation(e1, pref = pref) 
+  
+  e1_vpi_plt <- fcn_plt_vpi(e1_voi, n_actions)
+  
+  e1_ce <- lapply(gamma_seq, function(gamma) apply(e1$action_state, 1, pref_define(pref), lambda=gamma)) %>%
+    bind_rows()
+  e1_ce$gamma <- gamma_seq
+  e1_ce_plt <- fcn_plt_ce(e1_ce, n_actions)
+  ggsave(e1_ce_plt / e1_vpi_plt, filename = paste0("plots/e1_obj_value_", pref, ".png"), height = 8, width = 6)
+  
+  ## Example 1: 3 actions and 3 states
+  e2 <- list()
+  n_states <- 3
+  n_actions <- 3
+  a1 <- c(0.689, 0.582, 0.547)
+  a2 <- c(0.729, 0.674, 0.484)
+  a3 <- c(0.745, 0.710, 0.332)
+  e2$p <- c(0.4, 0.2, 0.4)
+  action_state <- matrix(c(a1, a2, a3), byrow = T, ncol = length(a1))
+  colnames(action_state) <- paste0('s', 1:n_states)
+  rownames(action_state) <- paste0('a', 1:n_actions)
+  e2$action_state <- action_state
+  e2_voi <- fcn_VOI_simulation(e2, pref = pref)
+  e2_vpi_plt <- fcn_plt_vpi(e2_voi, n_actions)
+  
+  e2_ce <- lapply(gamma_seq, function(gamma) apply(e2$action_state, 1, pref_define(pref), lambda=gamma)) %>%
+    bind_rows()
+  e2_ce$gamma <- gamma_seq
+  e2_ce_plt <- fcn_plt_ce(e2_ce, n_actions)
+  
+  ggsave(e2_ce_plt / e2_vpi_plt, filename = paste0("plots/e2_obj_value_", pref, ".png"), height = 6, width = 5)
+  
+  e1_ce_plt_list[[pref]] <- e1_ce_plt + ggtitle(pref_list_long[pref]) + theme(axis.line.x = element_blank(), axis.title.x = element_blank(),
+                                                                axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  e1_vpi_plt_list[[pref]] <- e1_vpi_plt + ggtitle(pref_list_long[pref])
+  e2_ce_plt_list[[pref]] <- e2_ce_plt + ggtitle(pref_list_long[pref]) + theme(axis.line.x = element_blank(), axis.title.x = element_blank(),
+                                                              axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  e2_vpi_plt_list[[pref]] <- e2_vpi_plt + ggtitle(pref_list_long[pref])
 }
 
-gamma_seq <- seq(-10,10,.1)
-## Example 1: 2 actions and two states
-e1 <- list()
-n_states <- 2
-n_actions <- 2
-a1 <- c(1.35, .55)
-a2 <- c(1.00, 1.00)
-e1$p <- c(0.5, 0.5)
-action_state <- matrix(c(a1, a2), byrow = T, ncol = length(a1))
-colnames(action_state) <- paste0('s', 1:n_states)
-rownames(action_state) <- paste0('a', 1:n_actions)
-e1$action_state <- action_state
-fcn_VOI_simulation(e1, gamma_seq) %>%
-  ggplot(aes(x = gamma, y = VPI, color = factor(max_EU))) +
-  geom_line() +
-  theme_minimal()
-
-e1_ce <- lapply(gamma_seq, function(gamma) apply(CARA(e1$action_state, gamma) %*% e1$p, 1, 
-                                        function(x) CARA_inv(x, gamma))) %>%
-  bind_rows()
-e1_ce$gamma <- gamma_seq
-e1_ce %>%
-  pivot_longer(paste0('a', 1:n_actions), names_to = 'actions', values_to = 'ce') %>%
-  ggplot(aes(y = ce, x = gamma, color = actions))+
-  geom_line()+
-  theme_minimal()
-
-## Example 1: 3 actions and 3 states
-e1 <- list()
-n_states <- 3
-n_actions <- 3
-a1 <- c(0.689, 0.582, 0.547)
-a2 <- c(0.729, 0.674, 0.484)
-a3 <- c(0.745, 0.710, 0.332)
-e1$p <- c(0.4, 0.2, 0.4)
-action_state <- matrix(c(a1, a2, a3), byrow = T, ncol = length(a1))
-colnames(action_state) <- paste0('s', 1:n_states)
-rownames(action_state) <- paste0('a', 1:n_actions)
-e1$action_state <- action_state
-fcn_VOI_simulation(e1, gamma_seq) %>%
-  ggplot(aes(x = gamma, y = VPI, color = as.factor(max_EU))) +
-  geom_line() +
-  theme_minimal()
-
-e1_ce <- lapply(gamma_seq, function(gamma) apply(CARA(e1$action_state, gamma) %*% e1$p, 1, 
-                                                 function(x) CARA_inv(x, gamma))) %>%
-  bind_rows()
-e1_ce$gamma <- gamma_seq
-e1_ce %>%
-  pivot_longer(paste0('a', 1:n_actions), names_to = 'actions', values_to = 'ce') %>%
-  ggplot(aes(y = ce, x = gamma, color = actions))+
-  geom_line()+
-  theme_minimal()
+e1_plt <- wrap_plots(e1_ce_plt_list) / wrap_plots(e1_vpi_plt_list)+ plot_layout(guides='collect')
+e2_plt <- wrap_plots(e2_ce_plt_list) / wrap_plots(e2_vpi_plt_list)+ plot_layout(guides='collect')
+ggsave(e1_plt, filename='plots/e1_plt.png', width = 12, height = 6)
+ggsave(e2_plt, filename='plots/e2_plt.png', width = 12, height = 6)
 
 ## Several states
 set.seed(1111)
@@ -98,31 +151,31 @@ n_actions <- 20
 ## Draw from uniform distribution like Holden et al (2024) ------
 plan(multisession)
 unif_action_state_sim <- function() matrix(runif(n_states*n_actions), nrow = n_actions)
-unif_plt <- fcn_plot_simulations(unif_action_state_sim)
+unif_plt <- fcn_plot_simulations(unif_action_state_sim, pref = pref)
 
 ## Draw from an exponential distribution like Holden et al (2024) ------
 exp_action_state_sim <- function() matrix(rexp(n_states*n_actions, 1), nrow = n_actions)
-exp_plt <- fcn_plot_simulations(exp_action_state_sim)
+exp_plt <- fcn_plot_simulations(exp_action_state_sim, pref = pref)
 
 ## Draw from an poisson distribution with heterogeneous rate parameters ------
 pois_action_state_sim <- function() rpois(n_states*n_actions, rep(sample(0:5, n_actions, replace = T), each=n_states)) %>%
   matrix(nrow = n_actions, byrow = T)
-pois_plt <- fcn_plot_simulations(pois_action_state_sim)
+pois_plt <- fcn_plot_simulations(pois_action_state_sim, pref = pref)
 
 ## Draw from an lognormal distribution like Holden et al (2024) ------
 lnorm_action_state_sim <- function() rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
   matrix(nrow = n_actions, byrow = T)
-lnorm_plt <- fcn_plot_simulations(lnorm_action_state_sim)
+lnorm_plt <- fcn_plot_simulations(lnorm_action_state_sim, pref = pref)
 
 ## Draw from a negative lognormal distribution ------
 neg_lnorm_action_state_sim <- function() -rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
   matrix(nrow = n_actions, byrow = T)
-neg_lnorm_plt <- fcn_plot_simulations(neg_lnorm_action_state_sim)
+neg_lnorm_plt <- fcn_plot_simulations(neg_lnorm_action_state_sim, pref = pref)
 
 ## Draw from an kurtotic distribution ------
 t_action_state_sim <- function() rt(n_states*n_actions, 3) %>%
   matrix(nrow = n_actions, byrow = T)
-t_plt <- fcn_plot_simulations(t_action_state_sim)
+t_plt <- fcn_plot_simulations(t_action_state_sim, pref = pref)
 
 ## No trade-off in mean and variance
 mu <- seq(1, 1.5, length.out = n_actions)
@@ -131,7 +184,7 @@ mv_no_tradeoff_action_state_sim <- function() rnorm(n_states*n_actions,
                                         rep(mu, each=n_states),
                                         rep(sd, each=n_states)) %>%
   matrix(nrow = n_actions, byrow = T)
-mv_no_tradeoff_plt <- fcn_plot_simulations(mv_no_tradeoff_action_state_sim)
+mv_no_tradeoff_plt <- fcn_plot_simulations(mv_no_tradeoff_action_state_sim, pref = pref)
 
 ## Explicit trade-off in mean and variance
 mu <- seq(1, 1.5, length.out = n_actions)
@@ -140,24 +193,27 @@ mv_action_state_sim <- function() rnorm(n_states*n_actions,
                                           rep(mu, each=n_states),
                                           rep(sd, each=n_states)) %>%
   matrix(nrow = n_actions, byrow = T)
-mv_plt <- fcn_plot_simulations(mv_action_state_sim)
+mv_plt <- fcn_plot_simulations(mv_action_state_sim, pref = pref)
 
 ## Write plots -----
 fig1 <- unif_plt$order_plt + ggtitle("Uniform") + unif_plt$v_plt + unif_plt$plt + 
   exp_plt$order_plt + ggtitle("Exponential") + exp_plt$v_plt + exp_plt$plt +
   pois_plt$order_plt + ggtitle("Poisson") + pois_plt$v_plt + pois_plt$plt + plot_layout(guides='collect',byrow = F) & theme(legend.position = "bottom")
 fig1
-ggsave(fig1, filename = "plots/homogeneous_dist.png", width = 12, height = 10, dpi = 300)
+ggsave(fig1, filename = paste0("plots/homogeneous_dist_", pref, ".png"), width = 12, height = 10, dpi = 300)
 
 fig2 <- lnorm_plt$order_plt + ggtitle("Lognormal") + lnorm_plt$v_plt + lnorm_plt$plt + 
   neg_lnorm_plt$order_plt + ggtitle("Lognormal (negative values)") + neg_lnorm_plt$v_plt + neg_lnorm_plt$plt + 
   t_plt$order_plt + ggtitle("T-distribution") + t_plt$v_plt + t_plt$plt +
   plot_layout(guides='collect',byrow = F, ncol = 3) & theme(legend.position = "bottom")
 fig2
-ggsave(fig2, filename = "plots/lnorm_dist.png", width = 12, height = 10, dpi = 300)
+ggsave(fig2, filename = paste0("plots/lnorm_dist_", pref, ".png"), width = 12, height = 10, dpi = 300)
 
 
 fig3 <- mv_no_tradeoff_plt$order_plt + ggtitle("Normal distribution") + mv_no_tradeoff_plt$v_plt + mv_no_tradeoff_plt$plt +
   mv_plt$order_plt + ggtitle("Mean-Variance tradeoff") + mv_plt$v_plt + mv_plt$plt + plot_layout(guides='collect',byrow = F, ncol=2) & theme(legend.position = "bottom")
 fig3
-ggsave(fig3, filename = "plots/mv_dist.png", width = 10, height = 10, dpi = 300)
+ggsave(fig3, filename = paste0("plots/mv_dist_", pref, ".png"), width = 10, height = 10, dpi = 300)
+}
+## Cleanup --------
+plan(sequential)

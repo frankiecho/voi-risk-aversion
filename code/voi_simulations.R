@@ -54,43 +54,65 @@ CARA_inv <- function(c, alpha = 0) {
   return(res)
 }
 
-# Mean-variance utility function given x, probability p, and lambda weighting parameter 
-MV <- function(x, p, lambda) {
-  return((1-abs(lambda))*weighted.mean(x, p*length(p)) - lambda*weighted.var(x, p*length(p)))
+CARA_CE_pref <- function(x, p=rep(1,length(x))/length(x), lambda = 0) {
+  gamma = lambda
+  CARA_inv(weighted.mean(CARA(x, gamma), p), gamma)
 }
 
-MCVaR <- function(x, p, lambda, beta = 0.1) {
-  if(gamma >= 0) {
+pref_define <- function(pref = 'CE') {
+  if (pref == 'CE') {
+    pref_func <- CARA_CE_pref
+  } else if (pref == 'MV'){
+    pref_func <- MV
+  } else if (pref == 'MCVaR') {
+    pref_func <- MCVaR
+  } else {
+    stop(paste("Preference function not defined for", pref))
+  }
+  pref_func
+}
+
+# Mean-variance utility function given x, probability p, and lambda weighting parameter 
+MV <- function(x, p=rep(1,length(x))/length(x), lambda=0) {
+  if (lambda > 1 | lambda < -1) {
+    stop("Lambda is only defined for -1 to 1")
+  }
+  return((1-abs(lambda))*weighted.mean(x, p) - lambda*weighted.var(x, p))
+}
+
+MCVaR <- function(x, p=rep(1,length(x))/length(x), lambda=0, beta = 0.1) {
+  if (lambda > 1 | lambda < -1) {
+    stop("Lambda is only defined for -1 to 1")
+  }
+  if(lambda >= 0) {
     VaR <- Quantile(x, weights = p*length(p), probs = beta)
     CVaR <- weighted.mean(x[x <= VaR], p[x <= VaR])
   } else {
     VaR <- Quantile(x, weights = p*length(p), probs = 1-beta)
     CVaR <- weighted.mean(x[x >= VaR], p[x >= VaR])
   }
-  return((1-abs(lambda))*weighted.mean(x, p*length(p)) + lambda*CVaR)
+  return((1-abs(lambda))*weighted.mean(x, p*length(p)) + abs(lambda)*CVaR)
 }
 
 # Expected Value of perfect information (compared in certainty equivalents)
-fcn_EVPI <- function(gamma, action_state, p, type = 'MV') {
-  if (type == 'CE') {
-    U <- function(c) CARA(c, gamma)
-    U_inv <- function(c) CARA_inv(c, gamma)
-    utility_table <- U(action_state)
-    max_a <- apply(utility_table, 2, which.max) %>% unlist() # Actions that maximise utility in each state (indices)
-    max_EU <- which.max(utility_table %*% p) # Action that maximises expected utility (index)
-    VPI_value <- action_state[cbind(max_a, seq_along(max_a))] %*% p - action_state[max_EU,] %*% p
-    V_certainty <- U_inv(utility_table[cbind(max_a, seq_along(max_a))] %*% p)
-    V_uncertainty <- U_inv(utility_table[max_EU,] %*% p)
-  } else if (type == 'MV' | type == 'MCVaR') {
-    pref_func <- ifelse(type == 'MV', MV, MCVaR)
-    
-    utility_table <- action_state
-    max_a <- apply(utility_table, 2, which.max) %>% unlist() # Actions that maximise utility in each state (indices)
-    max_EU <- which.max(apply(utility_table, 2, pref_func, p = p, lambda = gamma))[[1]] # Action that maximises mean-variance utility
-    VPI_value <- action_state[cbind(max_a, seq_along(max_a))] %*% p - action_state[max_EU,] %*% p
-    V_certainty <- pref_func(action_state[cbind(max_a, seq_along(max_a))], p, gamma)
-    V_uncertainty <- pref_func(action_state[max_EU,], p, gamma)
-  }
+fcn_EVPI <- function(gamma, action_state, p, pref = 'MCVaR') {
+  # U <- function(c) CARA(c, gamma)
+  # U_inv <- function(c) CARA_inv(c, gamma)
+  # utility_table <- U(action_state)
+  # max_a <- apply(utility_table, 2, which.max) %>% unlist() # Actions that maximise utility in each state (indices)
+  # max_EU <- which.max(utility_table %*% p) # Action that maximises expected utility (index)
+  # VPI_value <- action_state[cbind(max_a, seq_along(max_a))] %*% p - action_state[max_EU,] %*% p
+  # V_certainty <- U_inv(utility_table[cbind(max_a, seq_along(max_a))] %*% p)
+  # V_uncertainty <- U_inv(utility_table[max_EU,] %*% p)
+  
+  
+  pref_func <- pref_define(pref)
+  utility_table <- action_state
+  max_a <- apply(utility_table, 2, which.max) %>% unlist() # Actions that maximise utility in each state (indices)
+  max_EU <- which.max(apply(utility_table, 1, pref_func, p = p, lambda = gamma))[[1]] # Action that maximises mean-variance utility
+  VPI_value <- action_state[cbind(max_a, seq_along(max_a))] %*% p - action_state[max_EU,] %*% p
+  V_certainty <- pref_func(action_state[cbind(max_a, seq_along(max_a))], p, gamma)
+  V_uncertainty <- pref_func(action_state[max_EU,], p, gamma)
 
   VPI <- V_certainty - V_uncertainty
   if (any(is.na(VPI))) {
@@ -128,12 +150,21 @@ fcn_EVPXI <- function(gamma, action_state, p, Y) {
   list(VPI = VPI, VPI_value = VPI_value, max_EU = max_EU)
 }
 
-fcn_VOI_simulation  <- function(voi_problem, gamma_seq) {
+fcn_VOI_simulation  <- function(voi_problem, gamma_seq = NULL, pref = "CE") {
+  
+  if (is.null(gamma_seq)) {
+    if (pref=='CE') {
+      gamma_seq <- seq(-6,6,.05)
+    } else {
+      gamma_seq <- seq(-1,1,.01)
+    }
+  }
+  
   if(is.null(voi_problem$evpxi)) {
     voi_problem$evpxi <- FALSE
   }
   if (!voi_problem$evpxi) {
-    voi_result  <- lapply(gamma_seq, fcn_EVPI, action_state = voi_problem$action_state, p = voi_problem$p) 
+    voi_result  <- lapply(gamma_seq, fcn_EVPI, action_state = voi_problem$action_state, p = voi_problem$p, pref = pref) 
   } else {
     voi_result  <- lapply(gamma_seq, fcn_EVPXI, action_state = voi_problem$action_state, 
                        p = voi_problem$p, Y = voi_problem$Y) 
@@ -153,7 +184,7 @@ fcn_VOI_simulation  <- function(voi_problem, gamma_seq) {
 
 # Simulation function for any distribution
 # action_state: matrix of payoffs for each action in each state
-fcn_voi_simulation_distribution <- function(action_state_sim_func, n_y = 100, gamma_seq = seq(-5,5,0.1)) {
+fcn_voi_simulation_distribution <- function(action_state_sim_func, n_y = 100, pref = 'CE') {
   fcn_sim <- function() {
     prob <- list()
     prob$action_state <- action_state_sim_func()
@@ -167,7 +198,7 @@ fcn_voi_simulation_distribution <- function(action_state_sim_func, n_y = 100, ga
     prob
   }
   sim <- replicate(nsims, fcn_sim(), simplify = F)
-  sim_results <- lapply(sim, fcn_VOI_simulation, gamma_seq = gamma_seq)
+  sim_results <- future_lapply(sim, fcn_VOI_simulation, pref = pref)
   sim_table <- sim_results %>%
     #lapply(function(x) mutate(x, VPI = VPI - x$VPI[x$gamma == 0])) %>%
     #lapply(function(x) x$VPI) %>%
@@ -209,10 +240,10 @@ fcn_plt_sim_table <- function(table, ribbon = TRUE, col = NULL, additional_gg = 
   }
 }
 
-fcn_plot_simulations <- function(action_state) {
+fcn_plot_simulations <- function(action_state, pref = 'CE') {
   order_var <- c('action_worst_outcomes','action_mean_outcomes','action_best_outcomes')
   values_cert_uncert <- c("V_certainty", "V_uncertainty")
-  action_sim <- fcn_voi_simulation_distribution(action_state)
+  action_sim <- fcn_voi_simulation_distribution(action_state, pref = pref)
   action_sim_table <- fcn_summarise_table(action_sim)
   action_sim_order <- lapply(order_var, \(x) fcn_summarise_table(action_sim, variable = x))
   names(action_sim_order) <- order_var
@@ -242,7 +273,10 @@ fcn_plot_simulations <- function(action_state) {
     scale_color_manual(values = okabe_ito_colors[1:3])+
     theme(axis.line.x = element_blank(), axis.title.x = element_blank(),
           axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
-    annotate("text", x = -2.5, y = 0, label = "Risk-loving", vjust = 0, hjust = 0.5)+
-    annotate("text", x = 2.5, y = 0, label = "Risk-averse", vjust = 0, hjust = 0.5)
+    annotate("text", x = ifelse(pref=='CE',-2.5, -0.5), y = 0, label = "Risk-loving", vjust = 0, hjust = 0.5)+
+    annotate("text", x = ifelse(pref=='CE', 2.5, 0.5), y = 0, label = "Risk-averse", vjust = 0, hjust = 0.5)
   list(order_plt = order_plt, v_plt = v_plt, plt = plt)
 }
+
+
+
