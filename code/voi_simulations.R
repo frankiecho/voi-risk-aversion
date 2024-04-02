@@ -5,6 +5,9 @@ library(ggpubr)
 library(future)
 library(future.apply)
 library(Rmpfr)
+library(matrixStats)
+library(DescTools)
+library(modi)
 
 nsims <- 500
 
@@ -51,16 +54,44 @@ CARA_inv <- function(c, alpha = 0) {
   return(res)
 }
 
+# Mean-variance utility function given x, probability p, and lambda weighting parameter 
+MV <- function(x, p, lambda) {
+  return((1-abs(lambda))*weighted.mean(x, p*length(p)) - lambda*weighted.var(x, p*length(p)))
+}
+
+MCVaR <- function(x, p, lambda, beta = 0.1) {
+  if(gamma >= 0) {
+    VaR <- Quantile(x, weights = p*length(p), probs = beta)
+    CVaR <- weighted.mean(x[x <= VaR], p[x <= VaR])
+  } else {
+    VaR <- Quantile(x, weights = p*length(p), probs = 1-beta)
+    CVaR <- weighted.mean(x[x >= VaR], p[x >= VaR])
+  }
+  return((1-abs(lambda))*weighted.mean(x, p*length(p)) + lambda*CVaR)
+}
+
 # Expected Value of perfect information (compared in certainty equivalents)
-fcn_EVPI <- function(gamma, action_state, p) {
-  U <- function(c) CARA(c, gamma)
-  U_inv <- function(c) CARA_inv(c, gamma)
-  utility_table <- U(action_state)
-  max_a <- apply(utility_table, 2, which.max) %>% unlist() # Actions that maximise utility in each state (indices)
-  max_EU <- which.max(utility_table %*% p) # Action that maximises expected utility (index)
-  VPI_value <- action_state[cbind(max_a, seq_along(max_a))] %*% p - action_state[max_EU,] %*% p
-  V_certainty <- U_inv(utility_table[cbind(max_a, seq_along(max_a))] %*% p)
-  V_uncertainty <- U_inv(utility_table[max_EU,] %*% p)
+fcn_EVPI <- function(gamma, action_state, p, type = 'MV') {
+  if (type == 'CE') {
+    U <- function(c) CARA(c, gamma)
+    U_inv <- function(c) CARA_inv(c, gamma)
+    utility_table <- U(action_state)
+    max_a <- apply(utility_table, 2, which.max) %>% unlist() # Actions that maximise utility in each state (indices)
+    max_EU <- which.max(utility_table %*% p) # Action that maximises expected utility (index)
+    VPI_value <- action_state[cbind(max_a, seq_along(max_a))] %*% p - action_state[max_EU,] %*% p
+    V_certainty <- U_inv(utility_table[cbind(max_a, seq_along(max_a))] %*% p)
+    V_uncertainty <- U_inv(utility_table[max_EU,] %*% p)
+  } else if (type == 'MV' | type == 'MCVaR') {
+    pref_func <- ifelse(type == 'MV', MV, MCVaR)
+    
+    utility_table <- action_state
+    max_a <- apply(utility_table, 2, which.max) %>% unlist() # Actions that maximise utility in each state (indices)
+    max_EU <- which.max(apply(utility_table, 2, pref_func, p = p, lambda = gamma))[[1]] # Action that maximises mean-variance utility
+    VPI_value <- action_state[cbind(max_a, seq_along(max_a))] %*% p - action_state[max_EU,] %*% p
+    V_certainty <- pref_func(action_state[cbind(max_a, seq_along(max_a))], p, gamma)
+    V_uncertainty <- pref_func(action_state[max_EU,], p, gamma)
+  }
+
   VPI <- V_certainty - V_uncertainty
   if (any(is.na(VPI))) {
     warning('Some EVPI values are NA')

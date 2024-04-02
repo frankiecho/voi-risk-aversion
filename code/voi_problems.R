@@ -22,13 +22,13 @@ fcn_plot_corr_mat <- function(sigma_list, limits = c(NA, NA)) {
     theme_minimal()
 }
 
-gamma_seq <- seq(-5,5,.1)
+gamma_seq <- seq(-10,10,.1)
 ## Example 1: 2 actions and two states
 e1 <- list()
 n_states <- 2
 n_actions <- 2
-a1 <- c(1, 1)
-a2 <- c(1.12, 0.9)
+a1 <- c(1.35, .55)
+a2 <- c(1.00, 1.00)
 e1$p <- c(0.5, 0.5)
 action_state <- matrix(c(a1, a2), byrow = T, ncol = length(a1))
 colnames(action_state) <- paste0('s', 1:n_states)
@@ -41,6 +41,33 @@ fcn_VOI_simulation(e1, gamma_seq) %>%
 
 e1_ce <- lapply(gamma_seq, function(gamma) apply(CARA(e1$action_state, gamma) %*% e1$p, 1, 
                                         function(x) CARA_inv(x, gamma))) %>%
+  bind_rows()
+e1_ce$gamma <- gamma_seq
+e1_ce %>%
+  pivot_longer(paste0('a', 1:n_actions), names_to = 'actions', values_to = 'ce') %>%
+  ggplot(aes(y = ce, x = gamma, color = actions))+
+  geom_line()+
+  theme_minimal()
+
+## Example 1: 3 actions and 3 states
+e1 <- list()
+n_states <- 3
+n_actions <- 3
+a1 <- c(0.689, 0.582, 0.547)
+a2 <- c(0.729, 0.674, 0.484)
+a3 <- c(0.745, 0.710, 0.332)
+e1$p <- c(0.4, 0.2, 0.4)
+action_state <- matrix(c(a1, a2, a3), byrow = T, ncol = length(a1))
+colnames(action_state) <- paste0('s', 1:n_states)
+rownames(action_state) <- paste0('a', 1:n_actions)
+e1$action_state <- action_state
+fcn_VOI_simulation(e1, gamma_seq) %>%
+  ggplot(aes(x = gamma, y = VPI, color = as.factor(max_EU))) +
+  geom_line() +
+  theme_minimal()
+
+e1_ce <- lapply(gamma_seq, function(gamma) apply(CARA(e1$action_state, gamma) %*% e1$p, 1, 
+                                                 function(x) CARA_inv(x, gamma))) %>%
   bind_rows()
 e1_ce$gamma <- gamma_seq
 e1_ce %>%
@@ -63,8 +90,8 @@ Y <- sort(rep(1:n_y, 1+n_states/n_y)[1:n_states])
 
 ## Parameters -------
 set.seed(11111)
-n_states <- 50
-n_actions <- 50
+n_states <- 20
+n_actions <- 20
 
 
 
