@@ -133,87 +133,77 @@ ggsave(e2_plt, filename='plots/e2_plt.png', width = 12, height = 6)
 set.seed(1111)
 n_states <- 50
 n_actions <- 50
-A <- lhs::randomLHS(n = n_actions, k = n_states)
-action_state <- A
-p <- runif(n_states)
-p <- rep(1, n_states)
-p <- p/sum(p)
-n_y <- 5 # Partial information experiment that resolves uncertainty to n_y groups of possible outcomes
-Y <- sort(rep(1:n_y, 1+n_states/n_y)[1:n_states])
 
-## Parameters -------
-set.seed(11111)
-n_states <- 20
-n_actions <- 20
-
-
-
-## Draw from uniform distribution like Holden et al (2024) ------
-plan(multisession)
-unif_action_state_sim <- function() matrix(runif(n_states*n_actions), nrow = n_actions)
-unif_plt <- fcn_plot_simulations(unif_action_state_sim, pref = pref)
-
-## Draw from an exponential distribution like Holden et al (2024) ------
-exp_action_state_sim <- function() matrix(rexp(n_states*n_actions, 1), nrow = n_actions)
-exp_plt <- fcn_plot_simulations(exp_action_state_sim, pref = pref)
-
-## Draw from an poisson distribution with heterogeneous rate parameters ------
-pois_action_state_sim <- function() rpois(n_states*n_actions, rep(sample(0:5, n_actions, replace = T), each=n_states)) %>%
-  matrix(nrow = n_actions, byrow = T)
-pois_plt <- fcn_plot_simulations(pois_action_state_sim, pref = pref)
-
-## Draw from an lognormal distribution like Holden et al (2024) ------
-lnorm_action_state_sim <- function() rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
-  matrix(nrow = n_actions, byrow = T)
-lnorm_plt <- fcn_plot_simulations(lnorm_action_state_sim, pref = pref)
-
-## Draw from a negative lognormal distribution ------
-neg_lnorm_action_state_sim <- function() -rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
-  matrix(nrow = n_actions, byrow = T)
-neg_lnorm_plt <- fcn_plot_simulations(neg_lnorm_action_state_sim, pref = pref)
-
-## Draw from an kurtotic distribution ------
-t_action_state_sim <- function() rt(n_states*n_actions, 3) %>%
-  matrix(nrow = n_actions, byrow = T)
-t_plt <- fcn_plot_simulations(t_action_state_sim, pref = pref)
-
-## No trade-off in mean and variance
-mu <- seq(1, 1.5, length.out = n_actions)
-sd <- seq(0.5, 0.5, length.out = n_actions)
-mv_no_tradeoff_action_state_sim <- function() rnorm(n_states*n_actions, 
-                                        rep(mu, each=n_states),
-                                        rep(sd, each=n_states)) %>%
-  matrix(nrow = n_actions, byrow = T)
-mv_no_tradeoff_plt <- fcn_plot_simulations(mv_no_tradeoff_action_state_sim, pref = pref)
-
-## Explicit trade-off in mean and variance
-mu <- seq(1, 1.5, length.out = n_actions)
-sd <- seq(0.1, 3, length.out = n_actions)
-mv_action_state_sim <- function() rnorm(n_states*n_actions, 
+for (pref in pref_list) {
+  
+  ## Draw from uniform distribution like Holden et al (2024) ------
+  plan(multisession)
+  unif_action_state_sim <- function() matrix(runif(n_states*n_actions), nrow = n_actions)
+  unif_plt <- fcn_plot_simulations(unif_action_state_sim, pref = pref)
+  
+  ## Draw from an exponential distribution like Holden et al (2024) ------
+  exp_action_state_sim <- function() matrix(rexp(n_states*n_actions, 1), nrow = n_actions)
+  exp_plt <- fcn_plot_simulations(exp_action_state_sim, pref = pref)
+  
+  ## Draw from an poisson distribution with heterogeneous rate parameters ------
+  pois_action_state_sim <- function() rpois(n_states*n_actions, rep(sample(0:5, n_actions, replace = T), each=n_states)) %>%
+    matrix(nrow = n_actions, byrow = T)
+  pois_plt <- fcn_plot_simulations(pois_action_state_sim, pref = pref)
+  
+  ## Draw from an lognormal distribution like Holden et al (2024) ------
+  lnorm_action_state_sim <- function() rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
+    matrix(nrow = n_actions, byrow = T)
+  lnorm_plt <- fcn_plot_simulations(lnorm_action_state_sim, pref = pref)
+  
+  ## Draw from a negative lognormal distribution ------
+  neg_lnorm_action_state_sim <- function() -rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
+    matrix(nrow = n_actions, byrow = T)
+  neg_lnorm_plt <- fcn_plot_simulations(neg_lnorm_action_state_sim, pref = pref)
+  
+  ## Draw from an kurtotic distribution ------
+  t_action_state_sim <- function() rt(n_states*n_actions, 3) %>%
+    matrix(nrow = n_actions, byrow = T)
+  t_plt <- fcn_plot_simulations(t_action_state_sim, pref = pref)
+  
+  ## No trade-off in mean and variance
+  mu <- seq(1, 1.5, length.out = n_actions)
+  sd <- seq(0.5, 0.5, length.out = n_actions)
+  mv_no_tradeoff_action_state_sim <- function() rnorm(n_states*n_actions, 
                                           rep(mu, each=n_states),
                                           rep(sd, each=n_states)) %>%
-  matrix(nrow = n_actions, byrow = T)
-mv_plt <- fcn_plot_simulations(mv_action_state_sim, pref = pref)
-
-## Write plots -----
-fig1 <- unif_plt$order_plt + ggtitle("Uniform") + unif_plt$v_plt + unif_plt$plt + 
-  exp_plt$order_plt + ggtitle("Exponential") + exp_plt$v_plt + exp_plt$plt +
-  pois_plt$order_plt + ggtitle("Poisson") + pois_plt$v_plt + pois_plt$plt + plot_layout(guides='collect',byrow = F) & theme(legend.position = "bottom")
-fig1
-ggsave(fig1, filename = paste0("plots/homogeneous_dist_", pref, ".png"), width = 12, height = 10, dpi = 300)
-
-fig2 <- lnorm_plt$order_plt + ggtitle("Lognormal") + lnorm_plt$v_plt + lnorm_plt$plt + 
-  neg_lnorm_plt$order_plt + ggtitle("Lognormal (negative values)") + neg_lnorm_plt$v_plt + neg_lnorm_plt$plt + 
-  t_plt$order_plt + ggtitle("T-distribution") + t_plt$v_plt + t_plt$plt +
-  plot_layout(guides='collect',byrow = F, ncol = 3) & theme(legend.position = "bottom")
-fig2
-ggsave(fig2, filename = paste0("plots/lnorm_dist_", pref, ".png"), width = 12, height = 10, dpi = 300)
-
-
-fig3 <- mv_no_tradeoff_plt$order_plt + ggtitle("Normal distribution") + mv_no_tradeoff_plt$v_plt + mv_no_tradeoff_plt$plt +
-  mv_plt$order_plt + ggtitle("Mean-Variance tradeoff") + mv_plt$v_plt + mv_plt$plt + plot_layout(guides='collect',byrow = F, ncol=2) & theme(legend.position = "bottom")
-fig3
-ggsave(fig3, filename = paste0("plots/mv_dist_", pref, ".png"), width = 10, height = 10, dpi = 300)
+    matrix(nrow = n_actions, byrow = T)
+  mv_no_tradeoff_plt <- fcn_plot_simulations(mv_no_tradeoff_action_state_sim, pref = pref)
+  
+  ## Explicit trade-off in mean and variance
+  mu <- seq(1, 1.5, length.out = n_actions)
+  sd <- seq(0.1, 3, length.out = n_actions)
+  mv_action_state_sim <- function() rnorm(n_states*n_actions, 
+                                            rep(mu, each=n_states),
+                                            rep(sd, each=n_states)) %>%
+    matrix(nrow = n_actions, byrow = T)
+  mv_plt <- fcn_plot_simulations(mv_action_state_sim, pref = pref)
+  
+  ## Write plots -----
+  fig1 <- unif_plt$order_plt + ggtitle("Uniform") + unif_plt$v_plt + unif_plt$plt + 
+    exp_plt$order_plt + ggtitle("Exponential") + exp_plt$v_plt + exp_plt$plt + 
+    plot_layout(guides='collect', byrow = F, nrow = 3) & theme(legend.position = "bottom")
+  fig1
+  ggsave(fig1, filename = paste0("plots/homogeneous_dist_", pref, ".png"), width = 10, height = 10, dpi = 300)
+  
+  fig2 <- lnorm_plt$order_plt + ggtitle("Lognormal") + lnorm_plt$v_plt + lnorm_plt$plt + 
+    neg_lnorm_plt$order_plt + ggtitle("Lognormal (negative values)") + neg_lnorm_plt$v_plt + neg_lnorm_plt$plt + 
+    t_plt$order_plt + ggtitle("T-distribution") + t_plt$v_plt + t_plt$plt +
+    plot_layout(guides='collect',byrow = F, nrow = 3) & theme(legend.position = "bottom")
+  fig2
+  ggsave(fig2, filename = paste0("plots/lnorm_dist_", pref, ".png"), width = 12, height = 10, dpi = 300)
+  
+  
+  fig3 <- pois_plt$order_plt + ggtitle("Poisson") + pois_plt$v_plt + pois_plt$plt +
+    mv_no_tradeoff_plt$order_plt + ggtitle("Normal distribution") + mv_no_tradeoff_plt$v_plt + mv_no_tradeoff_plt$plt +
+    mv_plt$order_plt + ggtitle("Mean-Variance tradeoff") + mv_plt$v_plt + mv_plt$plt + 
+    plot_layout(guides='collect',byrow = F, nrow = 3) & theme(legend.position = "bottom")
+  fig3
+  ggsave(fig3, filename = paste0("plots/mv_dist_", pref, ".png"), width = 12, height = 10, dpi = 300)
 }
 ## Cleanup --------
 plan(sequential)

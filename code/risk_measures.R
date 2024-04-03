@@ -1,6 +1,7 @@
 ## Plot preference functions
 library(ggplot2)
 library(ggpubr)
+library(patchwork)
 
 pref_list_long <- c("CE"="Certainty Equivalent", "MV"="Mean-Variance", "MCVaR"="Mean-Expected Shortfall")
 pref_list <- names(pref_list_long)
@@ -26,12 +27,14 @@ for (pref in pref_list) {
     pivot_longer(cols = all_of(as.character(sigma_vec))) %>%
     ggplot(aes(x = lambda, y = value, color = name)) +
     geom_hline(yintercept = 0, color = 'gray50') +
-    geom_vline(xintercept = 0, color = 'gray50')
+    geom_vline(xintercept = 0, color = 'gray50') +
+    annotate("text", x = ifelse(pref=='CE',-3, -0.5), y = 14, label = "Risk-loving", vjust = 0, hjust = 0.5)+
+    annotate("text", x = ifelse(pref=='CE', 3, 0.5), y = 14, label = "Risk-averse", vjust = 0, hjust = 0.5) +
     scale_color_manual("Standard \nDeviation", values=okabe_ito_colors[c(1,3,5,7)]) +
     geom_line(linewidth = 1) +
     theme_pubr() +
     scale_x_continuous("Risk Aversion Coefficient") +
-    scale_y_continuous("Risk-adjusted Value", limits = c(-13, 13)) +
+    scale_y_continuous("Risk-adjusted Value", limits = c(-15, 15)) +
     theme(legend.position = 'right') +
     ggtitle(pref_list_long[pref])
   if (pref != pref_list[1]) {
@@ -40,4 +43,4 @@ for (pref in pref_list) {
 }
 
 plt_out <- wrap_plots(plt_list) + plot_layout(guides='collect')
-ggsave("plots/sd_plt.png", plt_out, width = 9, height = 5)
+ggsave("plots/sd_plt.png", plt_out, width = 9, height = 4)
