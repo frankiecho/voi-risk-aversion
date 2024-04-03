@@ -279,8 +279,8 @@ fcn_plot_simulations <- function(action_state, pref = 'CE') {
           axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
           panel.border = element_rect(linewidth = 0.5, fill = NA),
           axis.line = element_blank()) +
-    annotate("text", x = ifelse(pref=='CE',-2.5, -0.5), y = 0, label = "Risk-loving", vjust = 0, hjust = 0.5)+
-    annotate("text", x = ifelse(pref=='CE', 2.5, 0.5), y = 0, label = "Risk-averse", vjust = 0, hjust = 0.5)
+    annotate("text", x = ifelse(pref=='CE',-3, -0.5), y = 0, label = "Risk-loving", vjust = 0, hjust = 0.5)+
+    annotate("text", x = ifelse(pref=='CE', 3, 0.5), y = 0, label = "Risk-averse", vjust = 0, hjust = 0.5)
   list(order_plt = order_plt, v_plt = v_plt, plt = plt)
 }
 
