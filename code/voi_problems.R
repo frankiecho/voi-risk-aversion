@@ -128,10 +128,12 @@ for (pref in pref_list) {
   e2_vpi_plt_list[[pref]] <- e2_vpi_plt + ggtitle(pref_list_long[pref])
 }
 
-e1_plt <- wrap_plots(e1_ce_plt_list) / wrap_plots(e1_vpi_plt_list)+ plot_layout(guides='collect')
-e2_plt <- wrap_plots(e2_ce_plt_list) / wrap_plots(e2_vpi_plt_list)+ plot_layout(guides='collect')
-ggsave(e1_plt, filename='plots/e1_plt.png', width = 12, height = 6)
-ggsave(e2_plt, filename='plots/e2_plt.png', width = 12, height = 6)
+e1_plt <- wrap_plots(e1_ce_plt_list) / wrap_plots(e1_vpi_plt_list)+ plot_layout(guides='collect') +
+  plot_annotation(tag_levels = 'a')
+e2_plt <- wrap_plots(e2_ce_plt_list) / wrap_plots(e2_vpi_plt_list)+ plot_layout(guides='collect') +
+  plot_annotation(tag_levels = 'a')
+ggsave(e1_plt, filename='plots/e1_plt.png', width = 12, height = 7)
+ggsave(e2_plt, filename='plots/e2_plt.png', width = 12, height = 7)
 
 ## Several states
 set.seed(1111)
@@ -190,23 +192,26 @@ for (pref in pref_list) {
   ## Write plots -----
   fig1 <- unif_plt$order_plt + ggtitle("Uniform") + unif_plt$v_plt + unif_plt$plt + 
     exp_plt$order_plt + ggtitle("Exponential") + exp_plt$v_plt + exp_plt$plt + 
-    plot_layout(guides='collect', byrow = F, nrow = 3) & theme(legend.position = "bottom")
+    plot_layout(guides='collect', byrow = F, nrow = 3) & theme(legend.position = "bottom") &
+    plot_annotation(tag_levels = 'a')
   fig1
-  ggsave(fig1, filename = paste0("plots/homogeneous_dist_", pref, ".png"), width = 10, height = 10, dpi = 300)
+  ggsave(fig1, filename = paste0("plots/homogeneous_dist_", pref, ".png"), width = 10, height = 11, dpi = 300)
   
   fig2 <- lnorm_plt$order_plt + ggtitle("Lognormal") + lnorm_plt$v_plt + lnorm_plt$plt + 
     neg_lnorm_plt$order_plt + ggtitle("Lognormal (negative values)") + neg_lnorm_plt$v_plt + neg_lnorm_plt$plt + 
     t_plt$order_plt + ggtitle("T-distribution") + t_plt$v_plt + t_plt$plt +
-    plot_layout(guides='collect',byrow = F, nrow = 3) & theme(legend.position = "bottom")
+    plot_layout(guides='collect',byrow = F, nrow = 3) & theme(legend.position = "bottom") &
+    plot_annotation(tag_levels = 'a')
   fig2
-  ggsave(fig2, filename = paste0("plots/lnorm_dist_", pref, ".png"), width = 12, height = 10, dpi = 300)
+  ggsave(fig2, filename = paste0("plots/lnorm_dist_", pref, ".png"), width = 12, height = 11, dpi = 300)
   
   fig3 <- pois_plt$order_plt + ggtitle("Poisson") + pois_plt$v_plt + pois_plt$plt +
     mv_no_tradeoff_plt$order_plt + ggtitle("Normal distribution") + mv_no_tradeoff_plt$v_plt + mv_no_tradeoff_plt$plt +
     mv_plt$order_plt + ggtitle("Mean-Variance tradeoff") + mv_plt$v_plt + mv_plt$plt + 
-    plot_layout(guides='collect',byrow = F, nrow = 3) & theme(legend.position = "bottom")
+    plot_layout(guides='collect',byrow = F, nrow = 3) & theme(legend.position = "bottom") &
+    plot_annotation(tag_levels = 'a')
   fig3
-  ggsave(fig3, filename = paste0("plots/mv_dist_", pref, ".png"), width = 12, height = 10, dpi = 300)
+  ggsave(fig3, filename = paste0("plots/mv_dist_", pref, ".png"), width = 12, height = 11, dpi = 300)
 }
 ## Cleanup --------
 plan(sequential)
