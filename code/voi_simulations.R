@@ -249,8 +249,10 @@ fcn_plot_simulations <- function(action_state, pref = 'CE') {
   names(action_sim_order) <- order_var
   action_sim_order <- action_sim_order %>% bind_rows(.id = 'name')
   plt <- fcn_plt_sim_table(action_sim_table, additional_gg = list(geom_vline(xintercept = 0, color = 'gray50'))) +
-    scale_y_continuous("Certainty-equivalent\n Value of Perfect Information") +
-    scale_x_continuous("Risk Aversion Coefficient")
+    scale_y_continuous("Risk-adjusted\n Value of Perfect Information") +
+    scale_x_continuous("Risk Aversion Coefficient") +
+    theme(panel.border = element_rect(linewidth = 0.5, fill = NA),
+          axis.line = element_blank())
   
   v_certainty <- lapply(values_cert_uncert, \(x) fcn_summarise_table(action_sim, variable = x))
   names(v_certainty) <- values_cert_uncert
@@ -260,19 +262,23 @@ fcn_plot_simulations <- function(action_state, pref = 'CE') {
     fcn_plt_sim_table(F, 'name', additional_gg = list(geom_vline(xintercept = 0, color = 'gray50'))) +
     guides(color = guide_legend(title="")) +
     scale_color_manual(values = okabe_ito_colors[4:5])+
-    scale_y_continuous("Certainty-equivalent\n Value") +
+    scale_y_continuous("Risk-adjusted Value") +
     theme(axis.line.x = element_blank(), axis.title.x = element_blank(),
-          axis.text.x = element_blank(), axis.ticks.x = element_blank())
+          axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
+          panel.border = element_rect(linewidth = 0.5, fill = NA),
+          axis.line = element_blank())
   
   order_plt <- action_sim_order %>%
     mutate(name = factor(name, levels = order_var, labels = c('Minimum', 'Mean', 'Maximum'))) %>%
     fcn_plt_sim_table(F, 'name', additional_gg = list(geom_hline(yintercept = 1, color = 'gray50'),
                                                       geom_vline(xintercept = 0, color = 'gray50'))) +
-    scale_y_reverse("Rank") +
+    scale_y_reverse("Rank of action \nchosen under uncertainty") +
     guides(color = guide_legend(title="Order payoffs by")) +
     scale_color_manual(values = okabe_ito_colors[1:3])+
     theme(axis.line.x = element_blank(), axis.title.x = element_blank(),
-          axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+          axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
+          panel.border = element_rect(linewidth = 0.5, fill = NA),
+          axis.line = element_blank()) +
     annotate("text", x = ifelse(pref=='CE',-2.5, -0.5), y = 0, label = "Risk-loving", vjust = 0, hjust = 0.5)+
     annotate("text", x = ifelse(pref=='CE', 2.5, 0.5), y = 0, label = "Risk-averse", vjust = 0, hjust = 0.5)
   list(order_plt = order_plt, v_plt = v_plt, plt = plt)

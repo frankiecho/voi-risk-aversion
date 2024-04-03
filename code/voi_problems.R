@@ -46,7 +46,9 @@ for (pref in pref_list) {
       scale_y_continuous("Value of system under uncertainty") +
       scale_color_manual("Action", values=okabe_ito_colors[c(1,3,5)[1:n_actions]]) +
       theme_pubr() +
-      theme(legend.position = 'right')
+      theme(legend.position = 'right', 
+            panel.border = element_rect(linewidth = 0.5, fill = NA),
+            axis.line = element_blank())
   }
   
   fcn_plt_vpi <- function(df, n_actions = 2) {
@@ -65,7 +67,9 @@ for (pref in pref_list) {
       scale_y_continuous("Value of Perfect Information") +
       scale_color_manual("Optimal \nAction \nunder \nUncertainty", values=okabe_ito_colors[c(1,3,5)[1:n_actions]]) +
       theme_pubr() +
-      theme(legend.position = 'right')
+      theme(legend.position = 'right', 
+            panel.border = element_rect(linewidth = 0.5, fill = NA),
+            axis.line = element_blank())
   }
   
   ## Example 1: 2 actions and two states
@@ -196,7 +200,6 @@ for (pref in pref_list) {
     plot_layout(guides='collect',byrow = F, nrow = 3) & theme(legend.position = "bottom")
   fig2
   ggsave(fig2, filename = paste0("plots/lnorm_dist_", pref, ".png"), width = 12, height = 10, dpi = 300)
-  
   
   fig3 <- pois_plt$order_plt + ggtitle("Poisson") + pois_plt$v_plt + pois_plt$plt +
     mv_no_tradeoff_plt$order_plt + ggtitle("Normal distribution") + mv_no_tradeoff_plt$v_plt + mv_no_tradeoff_plt$plt +

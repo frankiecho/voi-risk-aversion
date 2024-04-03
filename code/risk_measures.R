@@ -35,7 +35,7 @@ for (pref in pref_list) {
     theme_pubr() +
     scale_x_continuous("Risk Aversion Coefficient") +
     scale_y_continuous("Risk-adjusted Value", limits = c(-15, 15)) +
-    theme(legend.position = 'right') +
+    theme(legend.position = 'right', panel.border = element_rect(linewidth = 1, fill = NA)) +
     ggtitle(pref_list_long[pref])
   if (pref != pref_list[1]) {
     plt_list[[pref]] <- plt_list[[pref]] + theme(axis.line.y = element_blank(), axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
