@@ -9,8 +9,6 @@ library(matrixStats)
 library(DescTools)
 library(modi)
 
-nsims <- 500
-
 okabe_ito_colors = c("#E69F00", "#56B4E9", "#009E73", "#CC79A7", "#D55E00", "#F0E442", "#0072B2",   "#999999")
 
 # vNM Utility functions
@@ -35,7 +33,6 @@ CRRA_inv <- function(c, gamma = 1) {
 }
 
 CARA <- function(c, alpha = 0) {
-  c <- c + 1e-6 # Adjustment for numeric stability
   if (alpha == 0 | is.na(alpha)) {
     res <- c
   } else {
@@ -45,7 +42,6 @@ CARA <- function(c, alpha = 0) {
 }
 
 CARA_inv <- function(c, alpha = 0) {
-  c <- c - 1e-6 # Adjustment for numeric stability
   if (alpha == 0 | is.na(alpha)) {
     res <- c
   } else {
@@ -54,9 +50,34 @@ CARA_inv <- function(c, alpha = 0) {
   return(res)
 }
 
-CARA_CE_pref <- function(x, p=rep(1,length(x))/length(x), lambda = 0) {
+fcn_is_real <- function(x) {
+  !is.infinite(x) & !is.null(x) & !is.na(x)
+}
+
+# Function to calculate certainty equivalents of CARA function
+CARA_CE_pref <- function(x, p=rep(1,length(x))/length(x), lambda = 0, mpfrPrec = NULL) {
   gamma = lambda
-  CARA_inv(weighted.mean(CARA(x, gamma), p), gamma)
+  if (is.null(mpfrPrec)) {
+    ce <- CARA_inv(weighted.mean(CARA(x, gamma), p), gamma)
+    if (!fcn_is_real(ce)) {
+      # Retry with higher numerical precision with recursion until the computation returns a non-infinite result
+      mpfrPrec <- 2000
+      max_mpfrPrec <- 50000
+      while (!fcn_is_real(ce) & mpfrPrec <= max_mpfrPrec) {
+        ce <- CARA_CE_pref(x, p, lambda, mpfrPrec = mpfrPrec)
+        mpfrPrec <- mpfrPrec + 2000
+      }
+      if (!fcn_is_real(ce)) {
+        stop("CE is NA")
+      }
+    }
+    return(ce)
+  } else {
+    x_mpfr <- mpfrArray(x, mpfrPrec)
+    ce_mpfr <- CARA_inv(weighted.mean(CARA(x_mpfr, gamma), p), gamma)
+    ce <- as.numeric(ce_mpfr)
+    return(ce)
+  }
 }
 
 pref_define <- function(pref = 'CE') {
@@ -158,7 +179,7 @@ fcn_VOI_simulation  <- function(voi_problem, gamma_seq = NULL, pref = "CE") {
   
   if (is.null(gamma_seq)) {
     if (pref=='CE') {
-      gamma_seq <- seq(-6,6,.05)
+      gamma_seq <- seq(-5,5,.05)
     } else {
       gamma_seq <- seq(-1,1,.01)
     }
@@ -189,7 +210,7 @@ fcn_VOI_simulation  <- function(voi_problem, gamma_seq = NULL, pref = "CE") {
 
 # Simulation function for any distribution
 # action_state: matrix of payoffs for each action in each state
-fcn_voi_simulation_distribution <- function(action_state_sim_func, n_y = 100, pref = 'CE') {
+fcn_voi_simulation_distribution <- function(action_state_sim_func, n_y = 100, pref = 'CE', nsims = 500) {
   fcn_sim <- function() {
     prob <- list()
     prob$action_state <- action_state_sim_func()
@@ -248,6 +269,7 @@ fcn_plt_sim_table <- function(table, ribbon = TRUE, col = NULL, additional_gg = 
 fcn_plot_simulations <- function(action_state, pref = 'CE') {
   order_var <- c('action_worst_outcomes','action_mean_outcomes','action_best_outcomes')
   values_cert_uncert <- c("V_certainty", "V_uncertainty")
+  n_actions <- nrow(action_state())
   action_sim <- fcn_voi_simulation_distribution(action_state, pref = pref)
   action_sim_table <- fcn_summarise_table(action_sim)
   action_sim_order <- lapply(order_var, \(x) fcn_summarise_table(action_sim, variable = x))
@@ -272,7 +294,7 @@ fcn_plot_simulations <- function(action_state, pref = 'CE') {
           axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
           panel.border = element_rect(linewidth = 0.5, fill = NA),
           axis.line = element_blank())
-  
+
   order_plt <- action_sim_order %>%
     mutate(name = factor(name, levels = order_var, labels = c('Minimum', 'Mean', 'Maximum'))) %>%
     fcn_plt_sim_table(F, 'name', additional_gg = list(geom_hline(yintercept = 1, color = 'gray50'),
@@ -284,8 +306,9 @@ fcn_plot_simulations <- function(action_state, pref = 'CE') {
           axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
           panel.border = element_rect(linewidth = 0.5, fill = NA),
           axis.line = element_blank()) +
-    annotate("text", x = ifelse(pref=='CE',-3, -0.5), y = 0, label = "Risk-loving", vjust = 0, hjust = 0.5)+
-    annotate("text", x = ifelse(pref=='CE', 3, 0.5), y = 0, label = "Risk-averse", vjust = 0, hjust = 0.5)
+    coord_cartesian(ylim = c(n_actions, -n_actions*0.1)) +
+    annotate("text", x = ifelse(pref=='CE',-2.5, -0.5), y = -n_actions*0.05, label = "Risk-loving", vjust = 0.5, hjust = 0.5)+
+    annotate("text", x = ifelse(pref=='CE', 2.5, 0.5), y = -n_actions*0.05, label = "Risk-averse", vjust = 0.5, hjust = 0.5)
   
   p_same_sim_table <- fcn_summarise_table(action_sim, variable = 'p_same')
   p_same_plt <- fcn_plt_sim_table(p_same_sim_table, additional_gg = list(geom_vline(xintercept = 0, color = 'gray50'))) +

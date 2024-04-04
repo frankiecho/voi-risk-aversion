@@ -137,8 +137,8 @@ ggsave(e2_plt, filename='plots/e2_plt.png', width = 12, height = 7)
 
 ## Several states
 set.seed(1111)
-n_states <- 50
-n_actions <- 50
+n_states <- 100
+n_actions <- 100
 
 for (pref in pref_list) {
   
@@ -146,30 +146,36 @@ for (pref in pref_list) {
   plan(multisession)
   unif_action_state_sim <- function() matrix(runif(n_states*n_actions), nrow = n_actions)
   unif_plt <- fcn_plot_simulations(unif_action_state_sim, pref = pref)
+  print('Completed unif_plt')
   
   ## Draw from an exponential distribution like Holden et al (2024) ------
   exp_action_state_sim <- function() matrix(rexp(n_states*n_actions, 1), nrow = n_actions)
   exp_plt <- fcn_plot_simulations(exp_action_state_sim, pref = pref)
+  print('Completed exp_plt')
   
   ## Draw from an poisson distribution with heterogeneous rate parameters ------
-  pois_action_state_sim <- function() rpois(n_states*n_actions, rep(rbinom(n_actions, 30, 0.1), each=n_states)) %>%
-    matrix(nrow = n_actions, byrow = T)
-  pois_plt <- fcn_plot_simulations(pois_action_state_sim, pref = pref)
+  #pois_action_state_sim <- function() rpois(n_states*n_actions, rep(rbinom(n_actions, 30, 0.1), each=n_states)) %>%
+  #  matrix(nrow = n_actions, byrow = T)
+  #pois_plt <- fcn_plot_simulations(pois_action_state_sim, pref = pref)
+  #print('Completed pois_plt')
   
   ## Draw from an lognormal distribution like Holden et al (2024) ------
-  lnorm_action_state_sim <- function() rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
+  lnorm_action_state_sim <- function() rlnorm(n_states*n_actions, rep(0.1, each=n_states), 0.8) %>%
     matrix(nrow = n_actions, byrow = T)
   lnorm_plt <- fcn_plot_simulations(lnorm_action_state_sim, pref = pref)
+  print('Completed lnorm_plt')
   
   ## Draw from a negative lognormal distribution ------
-  neg_lnorm_action_state_sim <- function() -rlnorm(n_states*n_actions, rep(0.1, each=n_states)) %>%
+  neg_lnorm_action_state_sim <- function() -rlnorm(n_states*n_actions, rep(0.1, each=n_states), 0.8) %>%
     matrix(nrow = n_actions, byrow = T)
   neg_lnorm_plt <- fcn_plot_simulations(neg_lnorm_action_state_sim, pref = pref)
+  print('Completed neg_lnorm')
   
   ## Draw from an kurtotic distribution ------
   t_action_state_sim <- function() rt(n_states*n_actions, 3) %>%
     matrix(nrow = n_actions, byrow = T)
   t_plt <- fcn_plot_simulations(t_action_state_sim, pref = pref)
+  print('Completed t_plt')
   
   ## No trade-off in mean and variance
   mu <- seq(0.5, 1.5, length.out = n_actions)
