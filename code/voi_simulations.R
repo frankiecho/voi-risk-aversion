@@ -128,12 +128,16 @@ fcn_EVPI <- function(gamma, action_state, p, pref = 'MCVaR') {
   action_mean_outcomes <- action_state %*% p
   max_EU_mean <- 1 + n_actions - match(action_mean_outcomes[max_EU], sort(action_mean_outcomes))
   
+  # Proportion where the optimal action under certainty and under uncertainty is the same
+  p_same_action <- (max_EU == max_a) %*% p
+  
   list(VPI = VPI, VPI_value = VPI_value, max_EU = max_EU, 
        V_certainty = V_certainty,
        V_uncertainty = V_uncertainty,
        action_worst_outcomes = max_EU_worst,
        action_mean_outcomes = max_EU_mean,
-       action_best_outcomes = max_EU_best)
+       action_best_outcomes = max_EU_best,
+       p_same_action = p_same_action)
 }
 
 # Expected Value of Partial Perfect Information (compared in certainty equivalents)
@@ -175,7 +179,8 @@ fcn_VOI_simulation  <- function(voi_problem, gamma_seq = NULL, pref = "CE") {
                          action_mean_outcomes = x$action_mean_outcomes,
                          action_worst_outcomes = x$action_worst_outcomes,
                          V_certainty = x$V_certainty,
-                         V_uncertainty = x$V_uncertainty)) %>%
+                         V_uncertainty = x$V_uncertainty,
+                         p_same = x$p_same)) %>%
     bind_rows(.id = 'gamma')
 
   evpi_seq$gamma <- gamma_seq
@@ -197,7 +202,7 @@ fcn_voi_simulation_distribution <- function(action_state_sim_func, n_y = 100, pr
     prob$evpxi <- n_y < n_states
     prob
   }
-  sim <- replicate(nsims, fcn_sim(), simplify = F)
+  sim <- future_replicate(nsims, fcn_sim(), simplify = F)
   sim_results <- future_lapply(sim, fcn_VOI_simulation, pref = pref)
   sim_table <- sim_results %>%
     #lapply(function(x) mutate(x, VPI = VPI - x$VPI[x$gamma == 0])) %>%
@@ -281,7 +286,15 @@ fcn_plot_simulations <- function(action_state, pref = 'CE') {
           axis.line = element_blank()) +
     annotate("text", x = ifelse(pref=='CE',-3, -0.5), y = 0, label = "Risk-loving", vjust = 0, hjust = 0.5)+
     annotate("text", x = ifelse(pref=='CE', 3, 0.5), y = 0, label = "Risk-averse", vjust = 0, hjust = 0.5)
-  list(order_plt = order_plt, v_plt = v_plt, plt = plt)
+  
+  p_same_sim_table <- fcn_summarise_table(action_sim, variable = 'p_same')
+  p_same_plt <- fcn_plt_sim_table(p_same_sim_table, additional_gg = list(geom_vline(xintercept = 0, color = 'gray50'))) +
+    scale_y_continuous("Probability information \ndoes not change action") +
+    scale_x_continuous("Risk Aversion Coefficient") +
+    theme(panel.border = element_rect(linewidth = 0.5, fill = NA),
+          axis.line = element_blank())
+    
+  list(order_plt = order_plt, v_plt = v_plt, plt = plt, p_same_plt = p_same_plt)
 }
 
 
