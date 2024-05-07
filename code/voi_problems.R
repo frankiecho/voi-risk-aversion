@@ -15,66 +15,11 @@ e2_ce_plt_list <- list()
 e1_vpi_plt_list <- list()
 e2_vpi_plt_list <- list()
 
-for (pref in pref_list) {
-  
-  fcn_plot_corr_mat <- function(sigma_list, limits = c(NA, NA)) {
-    names(sigma_list) <- 1:length(sigma_list)
-    sigma_df <- lapply(sigma_list, function(sigma) {
-      colnames(sigma) <- rownames(sigma) <- 1:nrow(sigma)
-      melted_cormat <- reshape2::melt(sigma)
-    }) %>%
-      bind_rows(.id = 'name')
-    ggplot(sigma_df, aes(x = Var1, y = Var2, fill = value)) +
-      geom_tile() +
-      scale_y_reverse() +
-      scale_fill_gradient2(midpoint = 0, limits = limits) +
-      facet_wrap(~name) +
-      theme_minimal()
-  }
-  
-  fcn_plt_ce <- function(df, n_actions = 2) {
-    df <- df %>%
-      pivot_longer(paste0('a', 1:n_actions), names_to = 'actions', values_to = 'ce') %>%
-      mutate(actions = factor(actions, paste0('a', 1:n_actions), as.character(1:n_actions))) 
-    df %>%
-      ggplot(aes(y = ce, x = gamma, color = actions))+
-      geom_hline(yintercept = 0, color = 'gray50') +
-      geom_vline(xintercept = 0, color = 'gray50') +
-      geom_line(linewidth = 1)+
-      geom_point(data = filter(df, gamma==0), size = 2) +
-      scale_x_continuous("Risk Aversion Coefficient") +
-      scale_y_continuous("Value of system under uncertainty") +
-      scale_color_manual("Action", values=okabe_ito_colors[c(1,3,5)[1:n_actions]]) +
-      theme_pubr() +
-      theme(legend.position = 'right', 
-            panel.border = element_rect(linewidth = 0.5, fill = NA),
-            axis.line = element_blank())
-  }
-  
-  fcn_plt_vpi <- function(df, n_actions = 2) {
-    df <- df %>%
-      mutate(actions = factor(max_EU, 1:n_actions, as.character(1:n_actions))) %>%
-      select(gamma, VPI, max_EU, actions) 
-    
-    df %>%
-      ggplot(aes(x = gamma, y = VPI)) +
-      geom_hline(yintercept = 0, color = 'gray50') +
-      geom_vline(xintercept = 0, color = 'gray50') +
-      geom_line(color = 'gray50', linewidth = 1) +
-      geom_line(aes(color = actions), linewidth = 1) +
-      geom_point(data = filter(df, gamma==0), aes(color = actions), size = 2) +
-      scale_x_continuous("Risk Aversion Coefficient") +
-      scale_y_continuous("Value of Perfect Information") +
-      scale_color_manual("Optimal \nAction \nunder \nUncertainty", values=okabe_ito_colors[c(1,3,5)[1:n_actions]]) +
-      theme_pubr() +
-      theme(legend.position = 'right', 
-            panel.border = element_rect(linewidth = 0.5, fill = NA),
-            axis.line = element_blank())
-  }
+for (pref in pref_list[1]) {
   
   ## Example 1: 2 actions and two states
   if (pref=='CE') {
-    gamma_seq <- seq(-5,5,.05)
+    gamma_seq <- seq(0.05, 5,.05)
   } else {
     gamma_seq <- seq(-1,1,.01)
   }
@@ -88,11 +33,11 @@ for (pref in pref_list) {
   colnames(action_state) <- paste0('s', 1:n_states)
   rownames(action_state) <- paste0('a', 1:n_actions)
   e1$action_state <- action_state
-  e1_voi <- fcn_VOI_simulation(e1, pref = pref) 
+  e1_voi <- fcn_VOI_simulation(e1, pref = pref, gamma_seq = gamma_seq) 
   
   e1_vpi_plt <- fcn_plt_vpi(e1_voi, n_actions)
   
-  e1_ce <- lapply(gamma_seq, function(gamma) apply(e1$action_state, 1, pref_define(pref), lambda=gamma)) %>%
+  e1_ce <- lapply(gamma_seq, function(gamma) apply(e1$action_state, 1, pref_define(pref), lambda=gamma, p = e1$p)) %>%
     bind_rows()
   e1_ce$gamma <- gamma_seq
   e1_ce_plt <- fcn_plt_ce(e1_ce, n_actions)
@@ -110,10 +55,10 @@ for (pref in pref_list) {
   colnames(action_state) <- paste0('s', 1:n_states)
   rownames(action_state) <- paste0('a', 1:n_actions)
   e2$action_state <- action_state
-  e2_voi <- fcn_VOI_simulation(e2, pref = pref)
+  e2_voi <- fcn_VOI_simulation(e2, pref = pref, gamma_seq = gamma_seq)
   e2_vpi_plt <- fcn_plt_vpi(e2_voi, n_actions)
   
-  e2_ce <- lapply(gamma_seq, function(gamma) apply(e2$action_state, 1, pref_define(pref), lambda=gamma)) %>%
+  e2_ce <- lapply(gamma_seq, function(g) apply(e2$action_state, 1, pref_define(pref), lambda=g, p = e2$p)) %>%
     bind_rows()
   e2_ce$gamma <- gamma_seq
   e2_ce_plt <- fcn_plt_ce(e2_ce, n_actions)

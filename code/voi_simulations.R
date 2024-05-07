@@ -50,6 +50,14 @@ CARA_inv <- function(c, alpha = 0) {
   return(res)
 }
 
+exp_u <- function(c, z = 0) {
+  return(c^(1/z))
+}
+
+inv_exp_u <- function(u, z = 0) {
+  return(u^(z))
+}
+
 fcn_is_real <- function(x) {
   !is.infinite(x) & !is.null(x) & !is.na(x)
 }
@@ -80,9 +88,34 @@ CARA_CE_pref <- function(x, p=rep(1,length(x))/length(x), lambda = 0, mpfrPrec =
   }
 }
 
+CRRA_CE_pref <- function(x, p=rep(1,length(x))/length(x), lambda = 0, mpfrPrec = NULL) {
+  gamma = lambda
+  if (is.null(mpfrPrec)) {
+    ce <- inv_exp_u(weighted.mean(exp_u(x, gamma), p), gamma)
+    if (!fcn_is_real(ce)) {
+      # Retry with higher numerical precision with recursion until the computation returns a non-infinite result
+      mpfrPrec <- 2000
+      max_mpfrPrec <- 50000
+      while (!fcn_is_real(ce) & mpfrPrec <= max_mpfrPrec) {
+        ce <- CARA_CE_pref(x, p, lambda, mpfrPrec = mpfrPrec)
+        mpfrPrec <- mpfrPrec + 2000
+      }
+      if (!fcn_is_real(ce)) {
+        stop("CE is NA")
+      }
+    }
+    return(ce)
+  } else {
+    x_mpfr <- mpfrArray(x, mpfrPrec)
+    ce_mpfr <- inv_exp_u(weighted.mean(exp_u(x_mpfr, gamma), p), gamma)
+    ce <- as.numeric(ce_mpfr)
+    return(ce)
+  }
+}
+
 pref_define <- function(pref = 'CE') {
   if (pref == 'CE') {
-    pref_func <- CARA_CE_pref
+    pref_func <- CRRA_CE_pref
   } else if (pref == 'MV'){
     pref_func <- MV
   } else if (pref == 'MCVaR') {
@@ -161,18 +194,58 @@ fcn_EVPI <- function(gamma, action_state, p, pref = 'MCVaR') {
        p_same_action = p_same_action)
 }
 
+
 # Expected Value of Partial Perfect Information (compared in certainty equivalents)
-fcn_EVPXI <- function(gamma, action_state, p, Y) {
-  U <- function(c) CARA(c, gamma)
-  U_inv <- function(c) CARA_inv(c, gamma)
-  utility_table <- U(action_state)
-  n_y <- max(unique(Y))
-  max_ay <- lapply(1:n_y, function(y) which.max(utility_table[,Y == y]%*%(p[Y == y]/sum(p[Y == y])))) %>% unlist() # Actions that maximise utility in each experimental outcome
-  max_EU <- which.max(utility_table %*% p) # Action that maximises expected utility (index) across all states
-  max_a <- max_ay[Y]
-  VPI_value <- action_state[cbind(max_a, seq_along(max_a))] %*% p - action_state[max_EU,] %*% p
-  VPI <- U_inv(utility_table[cbind(max_a, seq_along(max_a))] %*% p) - U_inv( utility_table[max_EU,] %*% p)
-  list(VPI = VPI, VPI_value = VPI_value, max_EU = max_EU)
+# gamma: Risk aversion coefficient
+# action_state: action state "payoff" matrix
+# p: probability of each state (before resolving uncertainty)
+# Y: a list of probable outcomes of the experiment, in a list of lists. In each list, the index of the states that are possible conditional on the experiment is given. 
+#   For example, a three-state system with the first list of Y being c(1,2) and second being c(3) means that the experiment can have two outcomes - (1) where state 3 is ruled out
+#   but it is still uncertain over state 1 or 2, or (2) where state 3 is confirmed
+# pY: probability of the outcome(s) of the experiments in Y
+fcn_EVSI <- function(gamma, action_state, p=rep(1,ncol(action_state))/ncol(action_state), Y, pY=length(Y), pref = 'CE') {
+  pref_func <- pref_define(pref)
+  utility_table <- apply(action_state, 1, pref_func, p = p, lambda = gamma) # utility of each action under complete uncertainty
+  max_EU <- which.max(utility_table)[[1]] # Action that maximises utility under uncertainty
+  
+  n_y <- length(Y) # Number of possible outcomes of the experiment
+  utility_table_Y <- lapply(Y, function(y) {
+    if (length(y)==1) return(sapply(action_state[,y], \(x) pref_func(x, p = p[y]/sum(p[y]), lambda = gamma)))
+    apply(action_state[,y], 1, pref_func, p = p[y]/sum(p[y]), lambda = gamma) 
+  }) %>% bind_rows() # The certainty equivalent of each outcome in Y, after resolving uncertainty in experiments
+  max_a <- apply(utility_table_Y, 1, which.max) # Which action maximises utility for each experimental outcome
+  
+  VPI_value <- sum(sapply(1:n_y, \(y) mean(action_state[cbind(max_a[y], Y[[y]])])) * pY)
+  outcomes_certainty <- do.call(c, lapply(1:n_y, \(y) action_state[cbind(max_a[y], Y[[y]])]))
+  p_certainty <- do.call(c, lapply(1:n_y, \(y) pY[y] * p[Y[[y]]]/sum(Y[[y]])))
+  
+  V_certainty <- pref_func(outcomes_certainty, p_certainty, gamma)
+  V_uncertainty <- pref_func(action_state[max_EU,], p, gamma)
+  
+  VPI <- V_certainty - V_uncertainty
+  if (any(is.na(VPI))) {
+    warning('Some EVPI values are NA')
+  }
+  # Calculate the performance of the optimal action in the presence of uncertainty
+  action_worst_outcomes <- apply(action_state, 1, min)
+  max_EU_worst <- 1 + n_actions - match(action_worst_outcomes[max_EU], sort(action_worst_outcomes))
+  
+  action_best_outcomes <- apply(action_state, 1, max)
+  max_EU_best <- 1 + n_actions - match(action_best_outcomes[max_EU], sort(action_best_outcomes))
+  
+  action_mean_outcomes <- action_state %*% p
+  max_EU_mean <- 1 + n_actions - match(action_mean_outcomes[max_EU], sort(action_mean_outcomes))
+  
+  # Proportion where the optimal action under certainty and under uncertainty is the same
+  p_same_action <- (max_EU == max_a) %*% pY
+  
+  list(VPI = VPI, VPI_value = VPI_value, max_EU = max_EU, 
+       V_certainty = V_certainty,
+       V_uncertainty = V_uncertainty,
+       action_worst_outcomes = max_EU_worst,
+       action_mean_outcomes = max_EU_mean,
+       action_best_outcomes = max_EU_best,
+       p_same_action = p_same_action)
 }
 
 fcn_VOI_simulation  <- function(voi_problem, gamma_seq = NULL, pref = "CE") {
@@ -185,14 +258,14 @@ fcn_VOI_simulation  <- function(voi_problem, gamma_seq = NULL, pref = "CE") {
     }
   }
   
-  if(is.null(voi_problem$evpxi)) {
-    voi_problem$evpxi <- FALSE
+  if(is.null(voi_problem$evsi)) {
+    voi_problem$evsi <- FALSE
   }
-  if (!voi_problem$evpxi) {
+  if (!voi_problem$evsi) {
     voi_result  <- lapply(gamma_seq, fcn_EVPI, action_state = voi_problem$action_state, p = voi_problem$p, pref = pref) 
   } else {
-    voi_result  <- lapply(gamma_seq, fcn_EVPXI, action_state = voi_problem$action_state, 
-                       p = voi_problem$p, Y = voi_problem$Y) 
+    voi_result  <- lapply(gamma_seq, fcn_EVSI, action_state = voi_problem$action_state, 
+                       p = voi_problem$p, Y = voi_problem$Y, pY = voi_problem$pY) 
   }
   evpi_seq <- voi_result %>%
     lapply(function(x) c(VPI = x$VPI, VPI_value = x$VPI_value, max_EU = x$max_EU, 
@@ -320,5 +393,58 @@ fcn_plot_simulations <- function(action_state, pref = 'CE') {
   list(order_plt = order_plt, v_plt = v_plt, plt = plt, p_same_plt = p_same_plt)
 }
 
+fcn_plot_corr_mat <- function(sigma_list, limits = c(NA, NA)) {
+  names(sigma_list) <- 1:length(sigma_list)
+  sigma_df <- lapply(sigma_list, function(sigma) {
+    colnames(sigma) <- rownames(sigma) <- 1:nrow(sigma)
+    melted_cormat <- reshape2::melt(sigma)
+  }) %>%
+    bind_rows(.id = 'name')
+  ggplot(sigma_df, aes(x = Var1, y = Var2, fill = value)) +
+    geom_tile() +
+    scale_y_reverse() +
+    scale_fill_gradient2(midpoint = 0, limits = limits) +
+    facet_wrap(~name) +
+    theme_minimal()
+}
 
+fcn_plt_ce <- function(df, n_actions = 2) {
+  df <- df %>%
+    pivot_longer(paste0('a', 1:n_actions), names_to = 'actions', values_to = 'ce') %>%
+    mutate(actions = factor(actions, paste0('a', 1:n_actions), as.character(1:n_actions))) 
+  df %>%
+    ggplot(aes(y = ce, x = gamma, color = actions))+
+    geom_hline(yintercept = 0, color = 'gray50') +
+    geom_vline(xintercept = 0, color = 'gray50') +
+    geom_line(linewidth = 1)+
+    geom_point(data = filter(df, gamma==0), size = 2) +
+    scale_x_continuous("Risk Aversion Coefficient") +
+    scale_y_continuous("Value of system under uncertainty") +
+    scale_color_manual("Action", values=okabe_ito_colors[c(1,3,5)[1:n_actions]], drop=F) +
+    theme_pubr() +
+    theme(legend.position = 'right', 
+          panel.border = element_rect(linewidth = 0.5, fill = NA),
+          axis.line = element_blank())
+}
+
+fcn_plt_vpi <- function(df, n_actions = 2) {
+  df <- df %>%
+    mutate(actions = factor(max_EU, 1:n_actions, as.character(1:n_actions))) %>%
+    select(gamma, VPI, max_EU, actions) 
+  
+  df %>%
+    ggplot(aes(x = gamma, y = VPI)) +
+    geom_hline(yintercept = 0, color = 'gray50') +
+    geom_vline(xintercept = 0, color = 'gray50') +
+    geom_line(color = 'gray50', linewidth = 1) +
+    geom_line(aes(color = actions), linewidth = 1) +
+    geom_point(data = filter(df, gamma==0), aes(color = actions), size = 2) +
+    scale_x_log10("Risk Aversion Coefficient") +
+    scale_y_continuous("Value of Perfect Information") +
+    scale_color_manual("Optimal \nAction \nunder \nUncertainty", values=okabe_ito_colors[c(1,3,5)[1:n_actions]], drop=F) +
+    theme_pubr() +
+    theme(legend.position = 'right', 
+          panel.border = element_rect(linewidth = 0.5, fill = NA),
+          axis.line = element_blank())
+}
 
