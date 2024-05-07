@@ -3,9 +3,10 @@ S <- 200
 n <- 200
 p <- 0.5
 
-# Give mu and np and get n and p
 gamma_seq = seq(0.01, 2, 0.01)
 pref <- 'CE'
+
+# Variation of Canessa (2015) Example 1 of Chytrid, with number of turtles modelled as binomial distribution with the same mean as Canessa
 
 n_states <- S*2
 n_actions <- 2
@@ -41,7 +42,7 @@ e1_ce_plt <- fcn_plt_ce(e1_ce, n_actions)
 e1_ce_plt
 
 
-## Example 1: 3 actions and 3 states
+# Variation of Canessa (2015) Example 2 of turtle reintroduction, where p is the prob success parameter of respective binomial distributions
 e2 <- list()
 n_states <- S*3
 n_actions <- 3
