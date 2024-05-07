@@ -1,12 +1,13 @@
 
-S <- 200
-n <- 200
-p <- 0.5
+source("code/voi_simulations.R")
+
+S <- 200 # Number of draws from binomial distribution
 
 gamma_seq = seq(0.01, 2, 0.01)
 pref <- 'CE'
 
 # Variation of Canessa (2015) Example 1 of Chytrid, with number of turtles modelled as binomial distribution with the same mean as Canessa
+p <- 0.5 # p parameter in binomial distribution - note that the variance of the binomial distribution is always not greater than n/4
 
 n_states <- S*2
 n_actions <- 2
