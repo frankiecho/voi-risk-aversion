@@ -8,6 +8,8 @@ library(Rmpfr)
 library(matrixStats)
 library(DescTools)
 library(modi)
+library(patchwork)
+library(ggnewscale)
 
 okabe_ito_colors = c("#E69F00", "#56B4E9", "#009E73", "#CC79A7", "#D55E00", "#F0E442", "#0072B2",   "#999999")
 
@@ -51,11 +53,11 @@ CARA_inv <- function(c, alpha = 0) {
 }
 
 exp_u <- function(c, z = 0) {
-  return(c^(1/z))
+  return(c^(z))
 }
 
 inv_exp_u <- function(u, z = 0) {
-  return(u^(z))
+  return(u^(1/z))
 }
 
 fcn_is_real <- function(x) {
@@ -217,7 +219,7 @@ fcn_EVSI <- function(gamma, action_state, p=rep(1,ncol(action_state))/ncol(actio
   
   VPI_value <- sum(sapply(1:n_y, \(y) mean(action_state[cbind(max_a[y], Y[[y]])])) * pY)
   outcomes_certainty <- do.call(c, lapply(1:n_y, \(y) action_state[cbind(max_a[y], Y[[y]])]))
-  p_certainty <- do.call(c, lapply(1:n_y, \(y) pY[y] * p[Y[[y]]]/sum(Y[[y]])))
+  p_certainty <- do.call(c, lapply(1:n_y, \(y) pY[y] * p[Y[[y]]]/sum(p[Y[[y]]])))
   
   V_certainty <- pref_func(outcomes_certainty, p_certainty, gamma)
   V_uncertainty <- pref_func(action_state[max_EU,], p, gamma)
@@ -410,17 +412,17 @@ fcn_plot_corr_mat <- function(sigma_list, limits = c(NA, NA)) {
 
 fcn_plt_ce <- function(df, n_actions = 2) {
   df <- df %>%
-    pivot_longer(paste0('a', 1:n_actions), names_to = 'actions', values_to = 'ce') %>%
-    mutate(actions = factor(actions, paste0('a', 1:n_actions), as.character(1:n_actions))) 
+    pivot_longer(c(paste0('a', 1:n_actions), 'V_certainty'), names_to = 'actions', values_to = 'ce') %>%
+    mutate(actions = factor(actions, c(paste0('a', 1:n_actions), "V_certainty"), c(as.character(1:n_actions), 'V_certainty')))
   df %>%
     ggplot(aes(y = ce, x = gamma, color = actions))+
-    geom_hline(yintercept = 0, color = 'gray50') +
+    #geom_hline(yintercept = 0, color = 'gray50') +
     geom_vline(xintercept = 0, color = 'gray50') +
     geom_line(linewidth = 1)+
     geom_point(data = filter(df, gamma==0), size = 2) +
-    scale_x_continuous("Risk Aversion Coefficient") +
-    scale_y_continuous("Value of system under uncertainty") +
-    scale_color_manual("Action", values=okabe_ito_colors[c(1,3,5)[1:n_actions]], drop=F) +
+    scale_x_continuous("Risk Coefficient") +
+    scale_y_continuous("Value of system") +
+    scale_color_manual("Action", values=c(okabe_ito_colors[c(1,3,5)[1:n_actions]],'gray30'), drop=F) +
     theme_pubr() +
     theme(legend.position = 'right', 
           panel.border = element_rect(linewidth = 0.5, fill = NA),
@@ -434,13 +436,13 @@ fcn_plt_vpi <- function(df, n_actions = 2) {
   
   df %>%
     ggplot(aes(x = gamma, y = VPI)) +
-    geom_hline(yintercept = 0, color = 'gray50') +
+    #geom_hline(yintercept = 0, color = 'gray50') +
     geom_vline(xintercept = 0, color = 'gray50') +
     geom_line(color = 'gray50', linewidth = 1) +
     geom_line(aes(color = actions), linewidth = 1) +
     geom_point(data = filter(df, gamma==0), aes(color = actions), size = 2) +
-    scale_x_log10("Risk Aversion Coefficient") +
-    scale_y_continuous("Value of Perfect Information") +
+    scale_x_continuous("Risk Coefficient") +
+    scale_y_continuous("Value of Information") +
     scale_color_manual("Optimal \nAction \nunder \nUncertainty", values=okabe_ito_colors[c(1,3,5)[1:n_actions]], drop=F) +
     theme_pubr() +
     theme(legend.position = 'right', 
