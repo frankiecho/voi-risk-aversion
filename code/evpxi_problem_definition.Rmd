@@ -1,52 +1,44 @@
 ---
-title: "Extended EVSI problem"
+title: "Expected Utility formulation of the Expected Value of Partial Perfect Information (EVPXI) problem"
 author: "Frankie Cho"
 date: "2024-05-08"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-source("C:/Users/uqfcho/Documents/GitHub/voi-risk-aversion/code/voi_simulations.R")
+knitr::opts_chunk$set(echo = TRUE, fig.retina = TRUE)
+source("../code/voi_simulations.R")
+set.seed(4925349)
 ```
 
-## Expected Utility formulation of the VOI problem: Expected Value of Partial Perfect Information (EVPXI) extension
+## Problem formulation
 
 Consider the following type of an Value of Information problem where a decision-maker determines the value of having access to a sample of information that allows them to resolve some uncertainty about the problem.
 
-A decision-maker is interested in choosing a management program that will maximise the total size of the population. The population follows a binomial distribution:
+A decision-maker is interested in choosing a management program that will maximise the total size of the population after a defined time period. The population follows a binomial distribution:
 
 $$
 M \sim \text{Binom}(n, p)
 $$
 
-where $M$ is a random variable that is distributed according to the binomial distribution with parameters $n$, the initial population size and $p$, the probability that an individual in the population will persist in the habitat after a defined period of time. Here, we assume that $n$ is fixed in each problem. Perhaps this can represent the initial number of individuals in the population, or the number of individuals that are reintroduced to the environment as part of a threatened species reintroduction program in Canessa et al. (2015).
+where the total population size $M$ is a random variable that is distributed with parameters $n$, the initial population size and $p$, the probability that an individual in the population will persist in the habitat after a defined period of time. Here, we assume that $n$ is fixed in each problem. Perhaps this can represent the initial number of individuals in the population, or the number of individuals that are reintroduced to the environment as part of a threatened species reintroduction program in Canessa et al. (2015).
 
-Specifically the parameter $p$ depends on the management action the decision-maker chooses (action $a$), and the state of the world $s$ that can be revealed through investing into a monitoring programme.
-
-Consider the following structure of the problem:
-
-|          | State 1   | State 2   |
-|----------|-----------|-----------|
-| Action 1 | $p_{1,1}$ | $p_{1,2}$ |
-| Action 2 | $p_{2,1}$ | $p_{2,2}$ |
-
-Here, $p_{a,s}$ is a random variable of the outcomes (based on a measured value) in action $a$ and $s$ state of the world. The sample of information can resolve the uncertainty over which state of the world $s$ the world is in. Thus, the sample of information can enable the decision-maker to pinpoint which distribution of outcome is associated with each action.
+The parameter $p$ depends on the management action the decision-maker chooses (action $a$), and the state of the world $s$ that can be revealed through collecting information. We write the parameter $p$ as $p_{a,s}$, which is a variable that depends on the action $a$, which is chosen by the decision-maker, and and $s$ state of the world. $s$ is unknown to the decision-maker before collecting information, and is assumed to be known for certain if the decision-maker decides to collect information.
 
 We further assume that the decision-maker hopes to maximise the utility they derive, which is a function of the population size under management.
 
 $$
-\max_a \mathbb{E}_s[U(M|p_{a,s})]
+\max_a \mathbb{E}_s[U(M|p=p_{a,s})]
 $$
 
-where the utility function is defined with a parameter $z$ as follows:
+where the utility function follows a von Neumann-Morgenstern type power utility function specification defined with a parameter $z$ as follows:
 
 $$ U(m)=m^z , \quad z > 0$$
 
 From this, we know that the expected utility of the system before resolving $s$ can be expressed as follows:
 
 $$
-EU_{\text{uncertainty}} = \max_a \mathbb{E}_s [U(M|p_{a,s})]
+EU_{\text{uncertainty}} = \max_a \mathbb{E}_s [U(M|p=p_{a,s})]
 $$
 
 where $EU_{uncertainty}$ is the value of the system under uncertainty.
@@ -54,7 +46,7 @@ where $EU_{uncertainty}$ is the value of the system under uncertainty.
 Likewise, we know that the expected utility of the system after resolving $s$ can be written as follows:
 
 $$
-EU_{\text{less uncertainty}} = \mathbb{E}_s [\max_a U(M|p_{a,s})]
+EU_{\text{less uncertainty}} = \mathbb{E}_s [\max_a U(M|p=p_{a,s})]
 $$
 
 where $EU_{\text{less uncertainty}}$ is the value of the system under uncertainty.
@@ -62,7 +54,7 @@ where $EU_{\text{less uncertainty}}$ is the value of the system under uncertaint
 The Expected Utility of Partial Perfect Information (in terms of increases in utility) arising from resolving the state of the world $s$, thus knowing $p$, can thus be calculated as follows:
 
 $$
-\text{EUPXI}=\mathbb{E}_s[\max_a U(M | p_{a,s})] - \max_a \mathbb{E}_s [U(M|p_{a,s})]
+\text{EUPXI}=\mathbb{E}_s[\max_a U(M | p=p_{a,s})] - \max_a \mathbb{E}_s [U(M| p=p_{a,s})]
 $$
 
 Because resolving $s$ only resolves uncertainty over the distribution of $M$, and does not resolve the actual value of $M$, resolving $s$ does not lead to knowledge of $M$ for certain. Therefore, resolving $s$ only leads to partial perfect information.
@@ -72,7 +64,9 @@ The problem with expressing the value of information in terms of expected utilit
 We can re-express the EUPXI problem to an Expected Value of Partial Perfect Information by expressing the changes in utility in terms of certainty-equivalents. Certainty equivalents can be interpreted as the certain number of population that produces the same level of utility as a random distribution, defined as follows:
 
 $$
-U(\text{CE}) = \mathbb{E}[U(M)] \\
+U(\text{CE}) = \mathbb{E}[U(M)] 
+$$
+$$
 \text{CE} = U^{-1}(E[(U(M)])
 $$
 
@@ -81,7 +75,10 @@ where $CE$ is a certain value with no randomness that generates the same utility
 The change in the expected value caused by the partial perfect information can be given as follows:
 
 $$
-\text{EVPXI}=U^{-1}(\mathbb{E}_s[\max_a U(M | p_{a,s})]) - U^{-1}(\max_a \mathbb{E}_s [U(M|p_{a,s})])
+\text{EVPXI}= U^{-1}(EU_{\text{less uncertainty}}) - U^{-1}(EU_{\text{uncertainty}})\\
+$$
+$$
+\text{EVPXI}=U^{-1}(\mathbb{E}_s[\max_a U(M | p=p_{a,s})]) - U^{-1}(\max_a \mathbb{E}_s [U(M|p=p_{a,s})])
 $$
 
 ## EVPXI when a "safe" action exists
@@ -100,16 +97,16 @@ The decision-maker is trying to examine whether or not to translocate frogs to a
 +------------------------+----------------------+------------------------+
 |                        | State 1 (No Chytrid) | State 2 (with Chytrid) |
 |                        |                      |                        |
-|                        | $\pi(s_1)=0.5$       | $\pi(s_2)=0.5$         |
+|                        | $\Pr(s=s_1)=0.5$     | $\Pr(s=s_2)=0.5$       |
 +========================+======================+========================+
-| Action 1 (do nothing)  | 0.5                  | 0.5                    |
+| Action 1 (do nothing)  | p=0.5                | p=0.5                  |
 +------------------------+----------------------+------------------------+
-| Action 2 (translocate) | 0.675                | 0.275                  |
+| Action 2 (translocate) | p=0.675              | p=0.275                |
 +------------------------+----------------------+------------------------+
 
 where $\pi$ is the probability of the state being true.
 
-In this example, if the decision-maker does nothing, the expected number of frogs that will survive after the period is $0.5n$. The decision-maker can choose to translocate; if he translocates, then the expected number of frogs that will survive is $0.675n$ if the site is Chytrid-free and $0.275n$ if the site has Chytrid. For example, if $n=200$, the number of frogs that will survive will follow the following distributions in terms of mean and variance, with the mean of the distributions matching those in Canessa et al. (2015):
+In this example, if the decision-maker does nothing, the expected number of frogs that will survive after the period is $0.5n$. The decision-maker can choose to translocate; if they translocates, then the expected number of frogs that will survive is $0.675n$ if the site is Chytrid-free and $0.275n$ if the site has Chytrid. For example, if $n=200$, the number of frogs that will survive will follow the following distributions in terms of mean and variance, with the mean of the distributions matching those in Canessa et al. (2015):
 
 +------------------------+--------------------------+-------------------------+
 |                        | State 1 (No Chytrid)     | State 2 (with Chytrid)  |
@@ -161,12 +158,15 @@ e1$evsi <- TRUE
 
 e1_voi <- fcn_VOI_simulation(e1, pref = 'CE', gamma_seq = gamma_seq)
 
-e1_ce <- lapply(gamma_seq, function(gamma) apply(e1$action_state, 1, pref_define(pref), lambda=gamma, p = e1$p)) %>%
+e1_ce <- lapply(gamma_seq, function(gamma) 
+  apply(e1$action_state, 1, pref_define(pref), lambda=gamma, p = e1$p)) %>%
   bind_rows()
 e1_ce$V_certainty <- e1_voi$V_certainty
 e1_ce$gamma <- gamma_seq
 e1_ce_plt <- fcn_plt_ce(e1_ce, n_actions)+ 
-  geom_line(data = e1_voi, aes(y = V_uncertainty, x = gamma), color = 'white', linetype = 2, linewidth = 1) +
+  geom_line(data = e1_voi, 
+            aes(y = V_uncertainty, x = gamma), 
+            color = 'white', linetype = 2, linewidth = 1) +
   geom_vline(xintercept = 1)
 e1_ce_plt
 ```
@@ -214,14 +214,17 @@ for (i in 1:length(N)) {
   e1$pY <- c(0.5, 0.5)
   e1$evsi <- TRUE
   
-  e1_voi <- fcn_VOI_simulation(e1, pref = 'CE', gamma_seq = gamma_seq)
+  e1_voi <- fcn_VOI_simulation(e1, pref = 'CE', 
+                               gamma_seq = gamma_seq)
   
-  e1_ce <- lapply(gamma_seq, function(gamma) apply(e1$action_state, 1, pref_define(pref), lambda=gamma, p = e1$p)) %>%
+  e1_ce <- lapply(gamma_seq, function(gamma) 
+    apply(e1$action_state, 1, pref_define(pref), lambda=gamma, p = e1$p)) %>%
     bind_rows()
   e1_ce$V_certainty <- e1_voi$V_certainty
   e1_ce$gamma <- gamma_seq
   e1_ce_plt <- fcn_plt_ce(e1_ce, n_actions)+ 
-    geom_line(data = e1_voi, aes(y = V_uncertainty, x = gamma), color = 'white', linetype = 2, linewidth = 1) +
+    geom_line(data = e1_voi, aes(y = V_uncertainty, x = gamma), 
+              color = 'white', linetype = 2, linewidth = 1) +
     geom_vline(xintercept = 1)
   e1_vpi_plt <- fcn_plt_vpi(e1_voi, n_actions)+ geom_vline(xintercept = 1)
   
@@ -240,30 +243,120 @@ plt_out[[1]] | plt_out[[2]] | plt_out[[3]]
 
 Interestingly, we observe that specifically for the n=5 case, the value of information is actually highest in the risk-averse case. This is because when n=5, there is a significant chance (`dbinom(0,5,0.5)=0.03`) where choosing no action (Action 1) will cause population levels to reach 0. These situations generate very low utility for the risk-averse decision-maker. Framed in another way, the act of choosing no action itself is a risky outcome. In this case, the decision-maker would be much more willing to invest in partial information, because it reduces the chances of $M$ reaching 0 to be `dbinom(0,5,0.5)*0.5 + dbinom(0,5,0.675)*0.5=0.01`. Thus, Action 1 is no longer a "safe" action. But if $n$ is large enough, the probability that $M=0$ is too small, such that for the risk-averse decision-maker, choosing Action 2 can already guarantee populations to persist in the habitat, making it a "safe" action.
 
-## EVPXI when there is no obvious "safe" action
+## EVPXI when there is no "safe" action
 
-We proceed to analyse the second example in Canessa, where there is no obvious "safe" action to take that can avoid really bad outcomes. In this example, the researchers are uncertain about a probability of survival parameter associated with the reintroduction of the threatened turtle. They can choose turtles of 3, 4 or 5 year old to release (Actions 1,2 and 3 respectively), but face competing hypotheses about which ones are true (State 1, 2 and 3). Which age group to release, and which hypothesis is true, jointly determines the survival rate of turtles that are reintroduced.
+We proceed to analyse the second example in Canessa, where there is no obvious "safe" action to take that can avoid really bad outcomes under complete uncertainty. In this example, the researchers are uncertain about a probability of survival parameter associated with the reintroduction of the threatened turtle. They can choose turtles of 3, 4 or 5 year old to release (Actions 1,2 and 3 respectively), but face competing hypotheses about which ones are true (State 1, 2 and 3). Which age group to release, and which hypothesis is true, jointly determines the survival rate $p$ of turtles that are reintroduced.
 
-+-----------+--------------------+-------------------+----------------+
-|           | State 1            | State 2           | State 3        |
-|           |                    |                   |                |
-|           | $\pi(s_1)=0.4$     | $\pi(s_2)=0.2$    | $\pi(s_3)=0.4$ |
-+===========+====================+===================+================+
-| Action 1  | 0.689              | 0.582             | 0.547          |
-+-----------+--------------------+-------------------+----------------+
-| Action 2  | 0.729              | 0.674             | 0.484          |
-+-----------+--------------------+-------------------+----------------+
-| Action 3  | 0.745              | 0.710             | 0.332          |
-+-----------+--------------------+-------------------+----------------+
++---------------+------------------+------------------+------------------+
+|               | State 1          | State 2          | State 3          |
+|               |                  |                  |                  |
+|               | $\Pr(s=s_1)=0.4$ | $\Pr(s=s_2)=0.2$ | $\Pr(s=s_3)=0.4$ |
++===============+==================+==================+==================+
+| Action 1      | p=0.689          | p=0.582          | p=0.547          |
++---------------+------------------+------------------+------------------+
+| Action 2      | p=0.729          | p=0.674          | p=0.484          |
++---------------+------------------+------------------+------------------+
+| Action 3      | p=0.745          | p=0.710          | p=0.332          |
++---------------+------------------+------------------+------------------+
 
 where the numbers represent the uncertain $p$ parameter of the binomial distribution, and $\pi$ represents the probability of each state.
 
 Again, we assume that the number of turtles surviving after a defined time period $M$ to follow a binomial distribution of $n$, the number of individuals released into the wild, and $p_{a,s}$, the probability of survival of each individual.
 
-We first illustrate the results when $n=10$, which gives us some significant probability for $M$ to be equal to 0.
+We first illustrate the results when $n=10$, which can be interpreted as re-introducing 10 individuals to the wild. This gives us some significant probability for $M$ to be equal to 0.
 
 ```{r}
+e2 <- list()
+n_states <- S*3
+n_actions <- 3
+pa1 <- c(0.689, 0.582, 0.547)
+pa2 <- c(0.729, 0.674, 0.484)
+pa3 <- c(0.745, 0.710, 0.332)
+e2$pY <- c(0.4, 0.2, 0.4)
+e2$Y <- list(c(1:S), S+c(1:S), S*2+c(1:S))
+e2$p <- rep(1/(S*3), S*3)
+e2$evsi <- TRUE
 
+n_individuals <- 10
+
+a1 <- do.call(c, lapply(pa1, \(p) rbinom(S, n_individuals, p)))
+a2 <- do.call(c, lapply(pa2, \(p) rbinom(S, n_individuals, p)))
+a3 <- do.call(c, lapply(pa3, \(p) rbinom(S, n_individuals, p)))
+
+action_state <- matrix(c(a1, a2, a3), byrow = T, ncol = n_states)
+colnames(action_state) <- paste0('s', 1:n_states)
+rownames(action_state) <- paste0('a', 1:n_actions)
+e2$p <- rep(1/n_states, n_states)
+e2$action_state <- action_state
+e2_voi <- fcn_VOI_simulation(e2, pref = pref, gamma_seq = gamma_seq)
+e2_vpi_plt <- fcn_plt_vpi(e2_voi, n_actions) + geom_vline(xintercept = 1)
+
+e2_ce <- lapply(gamma_seq, function(g) apply(e2$action_state, 1, 
+                                             pref_define(pref), 
+                                             lambda=g, p = e2$p)) %>%
+  bind_rows()
+e2_ce$gamma <- gamma_seq
+e2_ce$V_certainty <- e2_voi$V_certainty
+e2_ce_plt <- fcn_plt_ce(e2_ce, n_actions) + 
+  geom_line(data = e2_voi, aes(y = V_certainty, x = gamma), 
+            color = 'gray30', linewidth = 1) +
+  geom_line(data = e2_voi, aes(y = V_uncertainty, x = gamma), 
+            color = 'white', linetype = 2, linewidth = 1) +
+  geom_vline(xintercept = 1)
+e2_ce_plt
 ```
 
-[to be cont'd]
+These line plots show the change in the value of acting under uncertainty and choosing Actions 1, 2 and 3 respectively. We see that, because the true quantity of interest $M$ is random both before and after resolving $s$, the certainty-equivalent value of the system acting under complete uncertainty and acting under partial information declines with respect to declining risk coefficient \$z\$. The gap between the best action under uncertainty (dashed white line) and the value of acting under certainty is thus the value of partial perfect information.
+
+```{r}
+e2_vpi_plt
+```
+
+Interestingly, we see again the patterns observed before where the value of information increases at low levels of the risk coefficient (risk-averse) relative to when risk-neutral. As the risk coefficient decreases, the weight placed on avoid the outcome where $n=0$ increases. The probability of such an event can be reduced, but not eliminated, by resolving $s$. Because the value of acting under complete uncertainty (choosing Action 2) is very low under strong risk-aversion, the value of obtaining partial perfect information becomes higher.
+
+We can repeat the same experiment for increased values of $n$ and reveal the impact of reducing the probability that $M=0$ to the value of information in the risk-averse case relative to the risk-neutral case.
+
+```{r}
+N <- c(10, 50, 100)
+plt_out <- list()
+
+for (i in 1:length(N)) {
+  n_individuals <- N[i]
+  a1 <- do.call(c, lapply(pa1, \(p) rbinom(S, n_individuals, p)))
+  a2 <- do.call(c, lapply(pa2, \(p) rbinom(S, n_individuals, p)))
+  a3 <- do.call(c, lapply(pa3, \(p) rbinom(S, n_individuals, p)))
+  
+  action_state <- matrix(c(a1, a2, a3), byrow = T, ncol = n_states)
+  colnames(action_state) <- paste0('s', 1:n_states)
+  rownames(action_state) <- paste0('a', 1:n_actions)
+  e2$p <- rep(1/n_states, n_states)
+  e2$action_state <- action_state
+  e2_voi <- fcn_VOI_simulation(e2, pref = pref, gamma_seq = gamma_seq)
+  e2_vpi_plt <- fcn_plt_vpi(e2_voi, n_actions) + geom_vline(xintercept = 1)
+  
+  e2_ce <- lapply(gamma_seq, function(g) apply(e2$action_state, 1, 
+                                               pref_define(pref), lambda=g, p = e2$p)) %>%
+    bind_rows()
+  e2_ce$gamma <- gamma_seq
+  e2_ce$V_certainty <- e2_voi$V_certainty
+  e2_ce_plt <- fcn_plt_ce(e2_ce, n_actions)+ 
+    geom_line(data = e2_voi, aes(y = V_uncertainty, x = gamma), 
+              color = 'white', linetype = 2, linewidth = 1) +
+    geom_vline(xintercept = 1)
+  e2_vpi_plt <- fcn_plt_vpi(e2_voi, n_actions)+ geom_vline(xintercept = 1)
+  
+  if (i != length(N)) {
+    # Disable legends for the first two columns
+    e2_ce_plt <- e2_ce_plt + theme(legend.position = 'none')
+    e2_vpi_plt <- e2_vpi_plt + theme(legend.position = 'none')
+  }
+  e2_ce_plt <- e2_ce_plt + ggtitle(paste0("n=",n_individuals))
+  
+  plt_out[[i]] <- wrap_plots(e2_ce_plt / e2_vpi_plt)
+}
+plt_out[[1]] | plt_out[[2]] | plt_out[[3]] 
+```
+
+As expected, the value of information (in terms of increases in number of turtles surviving in certainty-equivalent terms) increases overall as $n$ increases. With more turtles released in the environment, the information about $s$ leads to more number of turtles saved in expectation.
+
+But also, as $n$ increases, the probability that $M=0$ for acting under uncertainty and acting under partial information reduces. However, in this case, the value of information still increases under risk aversion. This is because the variability of acting under complete uncertainty (choosing Action 2) is higher than the variability of acting under partial information. Thus, the value of the system under complete uncertainty declines faster with respect to risk aversion, relative to the value of the system with partial information.
